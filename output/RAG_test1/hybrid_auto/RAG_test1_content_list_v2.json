@@ -1,0 +1,2131 @@
+[
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/0ef95d249af99602ad4ccb8d3f319aa082fb9055c6239c4c294547d9dafea033.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(a) "
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                293,
+                85,
+                476,
+                169
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/287ca2421698470a0bf911361667b1c4b400ebbf0a385eb0d939b97a75c1a862.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(b) "
+                    },
+                    {
+                        "type": "text",
+                        "content": "图1.1 信号源的两种等价表示方法：（a）戴维南形式；（b）诺顿形式"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                498,
+                85,
+                680,
+                168
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "从上述讨论可以明显看出信号是一个时变量，它能够用如图1.2所示的图形来表示。事实上，信号中所含的信息内容由随时间发生的幅度变化来表示，也就是说，信息包含在信号波形的“摆动”中。这种波形通常很难用数学语言来描述，换句话说，很难简单地描述如图1.2所示的任意波形。但是，为了设计合适的针对特定信号完成特定功能的信号处理电路，这种描述又是非常重要的。"
+                    }
+                ]
+            },
+            "bbox": [
+                70,
+                221,
+                904,
+                318
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/6a0b02c6e1b94e51995c9d8dd8f9489a99908d0ebe96c930bebdde4ec18d7f09.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.2 一个任意的电压信号  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{s}(t)"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                221,
+                332,
+                755,
+                504
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.1 对于图1.1（a）和图1.1（b）所示的信号源表示，所能观测到的开路输出电压是多少？对于每一个电路，如果输出端短路，电流是多少？因为这两种表示方法等价，那么， "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{s}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "， "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "i_{s}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 和  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "R_{s}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的关系是什么？"
+                    }
+                ]
+            },
+            "bbox": [
+                74,
+                541,
+                906,
+                595
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：对于图1.1（a），  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{oc} = \\nu_{s}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；对于图1.1（b），  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{oc} = R_{s}i_{s}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；对于图1.1（a），  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "i_{sc} = \\nu_{s}(t) / R_{s}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；对于图1.1（b），  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "i_{sc} = i_{s}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；对于等价性，有  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{s}(t) = R_{s}i_{s}(t)"
+                    }
+                ]
+            },
+            "bbox": [
+                74,
+                600,
+                904,
+                636
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.2 某信号源有  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "10 \\mathrm{mV}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的开路电压和  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "10 \\mu \\mathrm{A}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的短路电流, 求它的源内阻。"
+                    }
+                ]
+            },
+            "bbox": [
+                74,
+                645,
+                756,
+                662
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1\\mathrm{k}\\Omega"
+                    }
+                ]
+            },
+            "bbox": [
+                115,
+                666,
+                222,
+                682
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1.2 信号频谱"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                77,
+                696,
+                255,
+                718
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "对信号和任意的时间函数的一种最有用的描述是它的频谱。信号的这种描述通过傅里叶级数和傅里叶变换①这两种数学工具来实现。这里不必关注这些变换的细节，只要知道它们提供了电压信号  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{s}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 和电流信号  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "i_{s}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的一种表示方法就足够了，这种方法是将电压和电流信号表示成不同频率和大小的正弦波形信号之和。这使得正弦信号成为电子电路的分析、设计和测试中非常重要的信号。因此，我们来简单回顾一下正弦曲线的特性。"
+                    }
+                ]
+            },
+            "bbox": [
+                74,
+                731,
+                908,
+                829
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "2 "
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                55,
+                107,
+                67
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "微电子电路（第五版）（上册）"
+                    }
+                ]
+            },
+            "bbox": [
+                349,
+                51,
+                610,
+                66
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "① 读者如果还没有学过这些内容的话也不必惊慌，第6章之前不会用到这些内容。但是对1.2节内容有一个大体的了解对学习本书的前面部分应该非常有用。"
+                    }
+                ]
+            },
+            "bbox": [
+                115,
+                868,
+                907,
+                899
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "图1.3所示的是一个正弦电压信号  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{a}(t)"
+                    }
+                ]
+            },
+            "bbox": [
+                138,
+                75,
+                481,
+                92
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "v _ {a} (t) = V _ {a} \\sin \\omega t \\tag {1.1}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/ab15e6d759ab1bb5f7b9214b3cbc892e4ddd61d3628bdb9c979e752e73d31cc7.jpg"
+                }
+            },
+            "bbox": [
+                455,
+                100,
+                919,
+                116
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "其中，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V_{a}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是用伏特表示的峰值或电压幅度，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是用弧度每秒表示的角频率，也就是  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega = 2\\pi f\\mathrm{rad / s}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " （这里  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是用赫兹表示的频率，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f = 1 / T\\mathrm{Hz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ，而  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "T"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是以秒为单位的时间周期）。"
+                    }
+                ]
+            },
+            "bbox": [
+                97,
+                124,
+                929,
+                161
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/27fee27753aaae50c0c5df53e289c9d4b46ff8edad685080f1d7ec9a0789fecf.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.3幅度为  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V_{a}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ，频率为  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f = 1 / THz"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的正弦电压信号。角频率  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega = 2\\pi f"
+                    },
+                    {
+                        "type": "text",
+                        "content": " rad/s"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                324,
+                172,
+                709,
+                314
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "正弦波信号完全可以用峰值  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V_{a}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 、频率  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 以及它在任意参考时间的相位来描述。在图1.3描述的例子中，因为正弦波曲线通过时间原点，因此它的相角为0。需要说明的是，人们通常通过正弦波信号的均方根值（rms）来表示它的幅度大小。均方根值等于峰值除以  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sqrt{2}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "，因此图1.3中的正弦波  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{a}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的均方根值为  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V_{a} / \\sqrt{2}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 。例如，当我们说家里的电源是  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "120\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 时就表明它是一个峰值为  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "120\\sqrt{2}\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的正弦波。"
+                    }
+                ]
+            },
+            "bbox": [
+                103,
+                350,
+                933,
+                453
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "现在讨论信号的正弦波之和的表示方法。注意，傅里叶级数是在特定情况下当信号是一个时间周期函数时完成这个任务的。而傅里叶变换具有更好的通用性，它可以得到波形是任意时间函数的信号的频谱。"
+                    }
+                ]
+            },
+            "bbox": [
+                104,
+                455,
+                933,
+                513
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "傅里叶级数可以将一给定时间周期的信号表示成无限数量的正弦波之和，这些正弦波的频率是相关谐波。例如，图1.4所示的对称方波信号可以表示成"
+                    }
+                ]
+            },
+            "bbox": [
+                104,
+                515,
+                933,
+                552
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "v (t) = \\frac {4 V}{\\pi} \\left(\\sin \\omega_ {0} t + \\frac {1}{3} \\sin 3 \\omega_ {0} t + \\frac {1}{5} \\sin 5 \\omega_ {0} t + \\dots\\right) \\tag {1.2}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/57144d60bb279915a388f08e3e4e0bd3fa4f5772c67524c9276c5720bb48a200.jpg"
+                }
+            },
+            "bbox": [
+                344,
+                559,
+                926,
+                598
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "其中，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是方波信号的幅度，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega = 2\\pi /T"
+                    },
+                    {
+                        "type": "text",
+                        "content": " （  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "T"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是方波的周期）称为基频。注意，因为谐波的幅度逐步减小，因此无限级数就可以被截尾，被截取的级数就是对方波的近似。"
+                    }
+                ]
+            },
+            "bbox": [
+                104,
+                602,
+                932,
+                640
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/c800b5023afb619e8b39724e7ac119388cdd774f41bd4558f8866cfa950d4da3.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.4 幅度为  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的对称方波信号"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                298,
+                650,
+                747,
+                797
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "式（1.2）级数中的正弦波组成了方波信号的频谱。该频谱如图1.5所示，其中，水平坐标表示以弧度每秒（rad/s）为单位的角频率  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega"
+                    },
+                    {
+                        "type": "text",
+                        "content": "。"
+                    }
+                ]
+            },
+            "bbox": [
+                105,
+                832,
+                933,
+                869
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "第1章 电子学简介"
+                    }
+                ]
+            },
+            "bbox": [
+                423,
+                39,
+                603,
+                55
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3 "
+                    }
+                ]
+            },
+            "bbox": [
+                891,
+                43,
+                907,
+                56
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/5b1683c55f9520c2c4e1ac6f285a0108e68b8f81d6015dee6fd190d6431ab2d1.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.5 图1.4的周期方波的频谱（也称为线状谱）"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                188,
+                84,
+                763,
+                276
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "傅里叶变换也可应用于如图1.2描述的非周期时间函数并可给出它的频谱。该频谱是一个频率连续函数，如图1.6所示。与由离散频率组成（ "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega_0"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 和它的谐波频率）的周期信号频谱不同，一般来说非周期信号的频谱包含所有可能的频率。但是，实际信号的频谱的重要部分通常只是频率轴上比较短的一段，这在处理这种信号的时候非常有用。例如，声音信号包括语音和音乐的频谱（从  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "20\\mathrm{Hz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 到  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "20\\mathrm{kHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 左右），这个频率范围称为音频波段。注意，尽管一些音调的频率超过了  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "20\\mathrm{kHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 但是人耳不能够听到高于  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "20\\mathrm{kHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的频率。还有一个例子，模拟视频信号的频谱在  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "0\\mathrm{MHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 到  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "4.5\\mathrm{MHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的范围内。"
+                    }
+                ]
+            },
+            "bbox": [
+                59,
+                311,
+                891,
+                447
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/29f3cc129be835aaf37bf50148ca21f39d34595c12ea57d3e7c713e2fb53d690.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.6 图1.2所示的任意波形的信号频谱"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                271,
+                467,
+                683,
+                636
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "通过对本节的内容进行一个总结可以看出，一个信号既可以用随时间变化的波形表示，如图1.2所示的电压信号  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{a}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": "，也可以用频谱来表示，如图1.6所示。这两种表示方法分别被称为时域表示法和频域表示法。 "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{a}(t)"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的频域表示是  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "V_{a}(\\omega)"
+                    },
+                    {
+                        "type": "text",
+                        "content": "。"
+                    }
+                ]
+            },
+            "bbox": [
+                62,
+                671,
+                891,
+                728
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.3 求周期为  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1\\mathrm{ms}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的正弦波信号的频率  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 和  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega"
+                    },
+                    {
+                        "type": "text",
+                        "content": "。"
+                    }
+                ]
+            },
+            "bbox": [
+                63,
+                738,
+                518,
+                755
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f = 1000\\mathrm{Hz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega = 2\\pi \\times 10^{3}\\mathrm{rad / s}"
+                    }
+                ]
+            },
+            "bbox": [
+                103,
+                757,
+                412,
+                774
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.4 求下列频率表示的正弦波的周期  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "T"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ：（a）  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f = 60\\mathrm{Hz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；（b）  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f = 10^{-3}\\mathrm{Hz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；（c）  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f = 1\\mathrm{MHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 。"
+                    }
+                ]
+            },
+            "bbox": [
+                63,
+                786,
+                861,
+                803
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "16.7\\mathrm{ms}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1000\\mathrm{s}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ；  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1\\mu \\mathrm{s}"
+                    }
+                ]
+            },
+            "bbox": [
+                103,
+                805,
+                351,
+                821
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.5 UHF（超高频）电视广播波段从14频道开始，频率从  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "470\\mathrm{MHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 到  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "806\\mathrm{MHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 。每个频道分配  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "6\\mathrm{MHz}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ，问在该波段内可以分配多少个频道？"
+                    }
+                ]
+            },
+            "bbox": [
+                63,
+                832,
+                891,
+                868
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：56；14频道到69频道"
+                    }
+                ]
+            },
+            "bbox": [
+                103,
+                870,
+                360,
+                887
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "4 "
+                    }
+                ]
+            },
+            "bbox": [
+                82,
+                45,
+                96,
+                57
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "微电子电路（第五版）（上册）"
+                    }
+                ]
+            },
+            "bbox": [
+                339,
+                41,
+                598,
+                57
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.6 如图1.4所示的方波信号［傅里叶级数见式（1.2）］被加到电阻上，总的功率损耗可以直接用  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "P = 1 / T\\int_{0}^{T}(v^{2} / R)dt"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 计算或通过对每个谐波引起的损耗进行相加来间接得到，即 "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "P = P_{1} + P_{3} + P_{5} + \\dots"
+                    },
+                    {
+                        "type": "text",
+                        "content": " ，而每一项都可以直接通过rms值得到。证明这两种方法是等价的。一个方波中有多少能量包含在基波中？有多少包含在它的前5个谐波中？有多少包含在它的前7个谐波中？有多少包含在它的前9个谐波中？有多少个谐波包含了  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "90\\%"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 的能量？（注意，在计算谐波次数时，基波  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\omega_0"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是第一个，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "2\\omega_0"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是第二个。）"
+                    }
+                ]
+            },
+            "bbox": [
+                94,
+                76,
+                922,
+                202
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：0.81；0.93；0.95；0.96；3"
+                    }
+                ]
+            },
+            "bbox": [
+                135,
+                205,
+                428,
+                221
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1.3 模拟信号与数字信号"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                97,
+                238,
+                409,
+                259
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "图1.2所示的电压信号是一个模拟信号，这是因为该信号与它所表示的实际信号是类似的。模拟信号的幅度可以取任何值，也就是说，模拟信号的幅度是一个连续变化量。现实生活中绝大多数的信号都是模拟信号。处理这类信号的电子电路称为模拟电路。本书将讨论各种不同的模拟电路。"
+                    }
+                ]
+            },
+            "bbox": [
+                96,
+                272,
+                922,
+                330
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "另一种信号表示形式是数列，每个数字表示在某一时刻信号的幅度，这样的信号就是数字信号。为了了解如何用这种形式来表示一个信号，也就是说，如何将信号从模拟形式转换成数字形式，可参见图1.7（a）。图中的曲线表示一个电压信号，它与图1.2中的信号相同。我们沿时间轴等间隔地标注了时间标记  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "t_0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "， "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "t_1"
+                    },
+                    {
+                        "type": "text",
+                        "content": "， "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "t_2"
+                    },
+                    {
+                        "type": "text",
+                        "content": "，…，依次类推。在每个时刻点对信号的大小进行测量的过程叫做采样。图1.7（b）是图1.7（a）所示的信号通过采样得到的表示法。图1.7（b）所示的信号只有在采样时刻被确定，它不再是一个时间连续的函数，而是一个时间离散信号。但是，因为每个采样点的幅度大小可以是一个连续范围内的任意值，因此图1.7（b）所示的信号仍然是一个模拟信号。"
+                    }
+                ]
+            },
+            "bbox": [
+                97,
+                332,
+                924,
+                487
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/40d1c941a61cac6846b258fa5e742b4dbca4e16719290a3f90a6f1a4a433db77.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(a) "
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                268,
+                499,
+                759,
+                657
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/d6a61cb49a786b0077f38fea488ee44fe6fe2564b2465c2c4e414edeeacaadcf.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(b) "
+                    },
+                    {
+                        "type": "text",
+                        "content": "图1.7 对（a）中的时间连续模拟信号采样得到（b）中的时间离散信号"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                268,
+                693,
+                759,
+                844
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "第1章 电子学简介"
+                    }
+                ]
+            },
+            "bbox": [
+                417,
+                40,
+                598,
+                57
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "5 "
+                    }
+                ]
+            },
+            "bbox": [
+                887,
+                44,
+                902,
+                58
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "如果用一些有限数字来表示图1.7（b）中信号的每个采样值的大小，那么信号的幅度将不再连续，这称为量化、离散化或数字化。所得到的数字信号将仅仅是一系列数字，这些数字表示了连续信号采样值的大小。"
+                    }
+                ]
+            },
+            "bbox": [
+                70,
+                75,
+                900,
+                134
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "所选择的用来表示信号采样的数字系统将影响所产生的数字信号的类型，并且对所要求的处理信号的数字电路的复杂程度也有很大影响。有证据表明，二进制数字系统产生的是最简单的数字信号和电路。在二进制系统中，每一位数字只有两种可能的取值——0和1。与此相对应的是：二进制系统的数字信号只需要两个电平值，它们可以用低和高来标识。例如，本书所用到的一些数字电路中，该电平值是  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "0\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 和  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "+5\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 。图1.8显示了随时间变化的数字信号。该信号是一个脉冲串，  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "0\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 表示0信号或逻辑0，而  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "+5\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 表示逻辑1。"
+                    }
+                ]
+            },
+            "bbox": [
+                70,
+                138,
+                900,
+                259
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/a85b83b5396093a68c3c0c18182d097e9ee8b549a9a6179ab653a090f47f74a9.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.8 一个特定的二进制数字信号随时间的变化曲线"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                236,
+                272,
+                789,
+                465
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "如果使用  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 位二进制数来表示模拟信号的每一个采样值，那么数字化的采样值可以表示成"
+                    }
+                ]
+            },
+            "bbox": [
+                112,
+                505,
+                892,
+                521
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "D = b _ {0} 2 ^ {0} + b _ {1} 2 ^ {1} + b _ {2} 2 ^ {2} + \\dots + b _ {N - 1} 2 ^ {N - 1} \\tag {1.3}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/7d004ddd6990389d6d96c8046df39a8329ee245e2afc32b7b7e457e9b24050d1.jpg"
+                }
+            },
+            "bbox": [
+                372,
+                531,
+                892,
+                548
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "其中， "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "b_{0}, b_{1}, \\cdots, b_{N-1}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 表示  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 位，值为 0 或 1。 "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "b_{0}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 位是最低有效位（LSB）， "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "b_{N-1}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是最高有效位（MSB）。通常，该二进制数被写成  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "b_{N-1}b_{N-2} \\cdots b_{0}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "。可以看到，这种表示法将模拟采样值量化成  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "2^{N}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 个电平中的一个。很明显，位数越大（也就是  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 越大），数字  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "D"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 就越接近于模拟采样值的大小。也就是说，增加位数可以减小量化误差、提高模数转换的分辨率。但是这个性能的提高通常是以更复杂和成本更高的电路实现为代价的。这里我们不对这个问题进行深入研究，我们只想让读者认识模拟和数字信号的本质。但是，这里有必要介绍一下现代电子系统中的一个重要的电路模块：模数转换器（A/D 或 ADC）。图 1.9 所示是它的框图。ADC 在输入端接收模拟信号，在它的  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 个输出端输出每个输入信号相应的  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 位数字表示[根据式（1.3）]。因此，尽管在输入端的电压可能是  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "6.51\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "（打个比方），那么在它的每个输出端（例如第  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "i"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 个输出端），若  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "b_{i}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 是 0 或 1，则该端输出"
+                    }
+                ]
+            },
+            "bbox": [
+                72,
+                556,
+                900,
+                741
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/ff8e1904f97d62cdf4fba93693fe59a954fcbb78a6be57046618b53c6e9538c4.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "图1.9 模数转换器的框图"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                74,
+                760,
+                521,
+                848
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "电压分别是低（0V）或高（5V）。我们将  \n在第9章中介绍ADC及其对偶电路数模转  \n换器（D/A或DAC）。"
+                    }
+                ]
+            },
+            "bbox": [
+                531,
+                745,
+                900,
+                803
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "一旦信号是用数字形式表示的，那么就可以利用数字电路来处理。当然，数字电路也能够处理没有模拟源的信号，如表示数字计算机的不同指令的信号。"
+                    }
+                ]
+            },
+            "bbox": [
+                531,
+                806,
+                904,
+                882
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "6 "
+                    }
+                ]
+            },
+            "bbox": [
+                93,
+                43,
+                108,
+                56
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "微电子电路（第五版）（上册）"
+                    }
+                ]
+            },
+            "bbox": [
+                351,
+                40,
+                611,
+                54
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "因为数字电路专门处理二进制信号，因此它们的设计要比模拟电路的设计简单。此外，数字系统可以用许多不同种类的数字电路部件来设计。但是，通常每种部件数是很大的（例如，数十万甚至上百万）。因此，对于设计者来说，数字电路的设计有它自身的困难，但是它能为许多不同的信号处理功能提供可靠和经济的实现方案，而这些方案中，有些是模拟电路所不能实现的。现在，越来越多的信号处理功能通过数字化来完成。这样的例子很多，其范围从数字手表、数字计算器到数字音响系统以及近年来的数字电视。甚至一些如电话通信系统等传统的模拟系统现在也几乎完全被数字化了，此外还有我们不应该忘记的所有数字系统中最重要的数字计算机。"
+                    }
+                ]
+            },
+            "bbox": [
+                94,
+                81,
+                925,
+                245
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "数字系统中最基本的构件是逻辑电路和存储电路，这两种电路在本书中都会涉及。我们将从1.7节开始，该节介绍最基本的数字电路——数字逻辑反相器。"
+                    }
+                ]
+            },
+            "bbox": [
+                97,
+                249,
+                925,
+                287
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "最后要说明的是：尽管现在信号数字处理技术的运用非常普遍，但还是存在一些只有用模拟电路才能获得最佳实现的信号处理功能。实际上，许多电子系统既包括模拟部分也包括数字部分。因此，优秀的电子工程师必须对模拟电路和数字电路的设计、或者对现在所知的混合信号或混合模式的设计都要擅长。这也是本书要达到的目的。"
+                    }
+                ]
+            },
+            "bbox": [
+                97,
+                290,
+                925,
+                371
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "练习1.7 用一个4位的数字字（digital word）  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "D = b_{3}b_{2}b_{1}b_{0}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " [见式（1.3）]来表示一个在  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "0\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 和  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "+15\\mathrm{V}"
+                    },
+                    {
+                        "type": "text",
+                        "content": " 之间变化的模拟信号  "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nu_{A}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "。"
+                    }
+                ]
+            },
+            "bbox": [
+                97,
+                383,
+                925,
+                421
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "text_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "（a）给出对应于  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "\\nu_{A} = 0\\mathrm{V}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ，  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "1\\mathrm{V}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ，  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "2\\mathrm{V}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " 和  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "15\\mathrm{V}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " 的  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "D"
+                            },
+                            {
+                                "type": "text",
+                                "content": " 。"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "（b）  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "\\nu_{A}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " 的哪种变化会引起下列位数从0变到1：（i）  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "b_{0}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ，（ii）  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "b_{1}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ，（iii）  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "b_{2}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ，（iv）  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "b_{3}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ？"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "（c）如果  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "\\nu_{A} = 5.2\\mathrm{V}"
+                            },
+                            {
+                                "type": "text",
+                                "content": " ，  "
+                            },
+                            {
+                                "type": "equation_inline",
+                                "content": "D"
+                            },
+                            {
+                                "type": "text",
+                                "content": " 为多少？用这种表示方法的误差是多少？"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                134,
+                432,
+                846,
+                491
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "答案：（a）0000，0001，0010，1111；（b）+1V，+2V，+4V，+8V；（c）0101，-4%"
+                    }
+                ]
+            },
+            "bbox": [
+                137,
+                502,
+                886,
+                520
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1.4 放大器"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                101,
+                538,
+                249,
+                559
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "本节将介绍几乎在每一个电子系统中都会用到的一类基本的信号处理功能，也就是信号放大。我们将把放大器作为一个电路构件来学习，也就是只考虑它的外部特性，而它的内部电路设计放在后面几章中讨论。"
+                    }
+                ]
+            },
+            "bbox": [
+                99,
+                574,
+                926,
+                631
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1.4.1 信号放大"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                101,
+                644,
+                270,
+                663
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "从概念上讲，最简单的信号处理任务是信号放大。信号放大的需求缘于换能器提供的信号都是微弱信号，其范围在毫伏或微伏并且能量很小。这样小的信号不能够进行可靠的处理，如果信号幅度变大的话，那么处理起来会变得更容易。实现该任务的功能模块就是信号放大器。"
+                    }
+                ]
+            },
+            "bbox": [
+                99,
+                676,
+                926,
+                736
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "现在有必要讨论一下对放大器的线性要求。当放大一个信号时，必须注意要使包含在信号中的信息不能发生变化而且不能引入新的信息。因此当把如图1.2所示的信号加入到一个放大器时，我们希望放大器的输出信号除了有一个更大的幅度外应该是输入信号的精确复制。换句话说，输出波形的摆动必须与输入波形的摆动相同。任何波形上的变化都被认为是失真，并且显然是不可以的。"
+                    }
+                ]
+            },
+            "bbox": [
+                99,
+                738,
+                926,
+                837
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "一个保持信号波形的放大器可以用下面的关系式来描述："
+                    }
+                ]
+            },
+            "bbox": [
+                138,
+                842,
+                628,
+                860
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "v _ {o} (t) = A v _ {i} (t) \\tag {1.4}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/cbc0a07aa723a25270d941f96954b15f6a1c6cc800d2cf537a5f1bb09dc8f991.jpg"
+                }
+            },
+            "bbox": [
+                474,
+                870,
+                919,
+                885
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "第1章 电子学简介"
+                    }
+                ]
+            },
+            "bbox": [
+                420,
+                46,
+                599,
+                62
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "7 "
+                    }
+                ]
+            },
+            "bbox": [
+                888,
+                50,
+                903,
+                62
+            ]
+        }
+    ]
+]

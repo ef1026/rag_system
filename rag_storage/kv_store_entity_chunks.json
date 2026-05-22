@@ -1,0 +1,890 @@
+{
+  "Sampling": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Sampling"
+  },
+  "Discrete-Time Signal": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Discrete-Time Signal"
+  },
+  "Analog Signal": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-19dab0b0d0f5732d8dae08612cd92992",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 3,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Analog Signal"
+  },
+  "Quantization": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Quantization"
+  },
+  "Digital Signal": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Signal"
+  },
+  "Binary Number System": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Binary Number System"
+  },
+  "Binary Digit (Bit)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Binary Digit (Bit)"
+  },
+  "Least Significant Bit (LSB)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Least Significant Bit (LSB)"
+  },
+  "Most Significant Bit (MSB)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Most Significant Bit (MSB)"
+  },
+  "Quantization Error": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Quantization Error"
+  },
+  "Analog-To-Digital Converter (ADC)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Analog-To-Digital Converter (ADC)"
+  },
+  "Digital-To-Analog Converter (DAC)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital-To-Analog Converter (DAC)"
+  },
+  "Digital Circuit": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Circuit"
+  },
+  "Logic Circuit": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 2,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Logic Circuit"
+  },
+  "Memory Circuit": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Memory Circuit"
+  },
+  "Digital Logic Inverter": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 2,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Logic Inverter"
+  },
+  "Analog Circuit": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-19dab0b0d0f5732d8dae08612cd92992",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 3,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Analog Circuit"
+  },
+  "Figure 1.7 (a)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Figure 1.7 (a)"
+  },
+  "Figure 1.7 (b)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Figure 1.7 (b)"
+  },
+  "Figure 1.8": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Figure 1.8"
+  },
+  "Figure 1.9": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Figure 1.9"
+  },
+  "Equation (1.3)": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Equation (1.3)"
+  },
+  "Digital Watch": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Watch"
+  },
+  "Digital Calculator": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Calculator"
+  },
+  "Digital Audio System": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Audio System"
+  },
+  "Digital Television": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Television"
+  },
+  "Telephone Communication System": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Telephone Communication System"
+  },
+  "Digital Computer": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b",
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 2,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Digital Computer"
+  },
+  "Signal": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb",
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 2,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Signal"
+  },
+  "Signal Waveform": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Signal Waveform"
+  },
+  "Signal Processing Circuit": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Signal Processing Circuit"
+  },
+  "Signal Source Representation": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Signal Source Representation"
+  },
+  "Open-Circuit Voltage": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Open-Circuit Voltage"
+  },
+  "Short-Circuit Current": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441644,
+    "update_time": 1770441644,
+    "_id": "Short-Circuit Current"
+  },
+  "Source Resistance": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Source Resistance"
+  },
+  "Signal Spectrum": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Signal Spectrum"
+  },
+  "Fourier Series": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Fourier Series"
+  },
+  "Fourier Transform": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Fourier Transform"
+  },
+  "Sinusoidal Signal": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Sinusoidal Signal"
+  },
+  "Peak Amplitude": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Peak Amplitude"
+  },
+  "Angular Frequency": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Angular Frequency"
+  },
+  "Frequency": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Frequency"
+  },
+  "Period": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Period"
+  },
+  "Phase": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Phase"
+  },
+  "Root Mean Square (rms) Value": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Root Mean Square (rms) Value"
+  },
+  "Symmetrical Square Wave": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Symmetrical Square Wave"
+  },
+  "Fundamental Frequency": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Fundamental Frequency"
+  },
+  "Harmonic": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Harmonic"
+  },
+  "Figure 1.2": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.2"
+  },
+  "Figure 1.1 (a)": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.1 (a)"
+  },
+  "Figure 1.1 (b)": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.1 (b)"
+  },
+  "Figure 1.3": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.3"
+  },
+  "Figure 1.4": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.4"
+  },
+  "Figure 1.5": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.5"
+  },
+  "Figure 1.6": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb",
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 2,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.6"
+  },
+  "Exercise 1.1": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Exercise 1.1"
+  },
+  "Exercise 1.2": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Exercise 1.2"
+  },
+  "ν_s(t)": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "ν_s(t)"
+  },
+  "i_s(t)": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "i_s(t)"
+  },
+  "ν_a(t)": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "ν_a(t)"
+  },
+  "Equation 1.2": {
+    "chunk_ids": [
+      "chunk-db51dd6aa7f66f035b774eb00b1181eb"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Equation 1.2"
+  },
+  "Storage Circuit": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Storage Circuit"
+  },
+  "Digital Signal Processing Technology": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Digital Signal Processing Technology"
+  },
+  "Electronic System": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Electronic System"
+  },
+  "Electronic Engineer": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Electronic Engineer"
+  },
+  "Mixed-Signal Design": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Mixed-Signal Design"
+  },
+  "Digital Word": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Digital Word"
+  },
+  "Amplifier": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Amplifier"
+  },
+  "Signal Amplification": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Signal Amplification"
+  },
+  "Transducer": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Transducer"
+  },
+  "Linear Requirement": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Linear Requirement"
+  },
+  "Distortion": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Distortion"
+  },
+  "Section 1.7": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Section 1.7"
+  },
+  "The Book": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "The Book"
+  },
+  "Exercise 1.7": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Exercise 1.7"
+  },
+  "Waveform": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Waveform"
+  },
+  "Amplifier Output Signal": {
+    "chunk_ids": [
+      "chunk-19dab0b0d0f5732d8dae08612cd92992"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Amplifier Output Signal"
+  },
+  "Periodic Signal": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Periodic Signal"
+  },
+  "Non-Periodic Signal": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Non-Periodic Signal"
+  },
+  "Spectrum": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Spectrum"
+  },
+  "Audio Band": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Audio Band"
+  },
+  "Analog Video Signal": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Analog Video Signal"
+  },
+  "Time-Domain Representation": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Time-Domain Representation"
+  },
+  "Frequency-Domain Representation": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Frequency-Domain Representation"
+  },
+  "Sinusoidal Wave": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Sinusoidal Wave"
+  },
+  "UHF Television Broadcast Band": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "UHF Television Broadcast Band"
+  },
+  "Square Wave": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Square Wave"
+  },
+  "Figure 1.7": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Figure 1.7"
+  },
+  "Angular Frequency ω": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Angular Frequency ω"
+  },
+  "Harmonic Frequencies": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Harmonic Frequencies"
+  },
+  "Fundamental Frequency ω0": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Fundamental Frequency ω0"
+  },
+  "Voltage Signal v_a(t)": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Voltage Signal v_a(t)"
+  },
+  "V_a(ω)": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "V_a(ω)"
+  },
+  "Power P": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Power P"
+  },
+  "Resistor": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Resistor"
+  },
+  "Sampling Times t0, t1, t2...": {
+    "chunk_ids": [
+      "chunk-181e1935bacdbe115a741761e8a72851"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Sampling Times t0, t1, t2..."
+  },
+  "Digital Signal Processing": {
+    "chunk_ids": [
+      "chunk-dfb17561da02687c6161ff7a64fd758b"
+    ],
+    "count": 1,
+    "create_time": 1770441645,
+    "update_time": 1770441645,
+    "_id": "Digital Signal Processing"
+  }
+}

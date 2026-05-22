@@ -1527,6 +1527,7 @@ class ProcessorMixin:
             )
 
         self.logger.info(f"Document {file_path} processing complete!")
+        return text_content
 
     async def process_document_complete_lightrag_api(
         self,
