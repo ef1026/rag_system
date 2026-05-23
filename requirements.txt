@@ -1,18 +1,24 @@
-huggingface_hub
-# LightRAG packages
-lightrag-hku
-# MinerU 2.0 packages (replaces magic-pdf)
-mineru[core]
-# Progress bars for batch processing
-tqdm
-# PDF text extraction for preassessment
-pypdf
-# Fix asyncio event loop issues in Streamlit
+# App runtime
+fastapi
+uvicorn[standard]
+python-multipart
+streamlit
+python-dotenv
 nest_asyncio
-# Note: Optional dependencies are now defined in setup.py extras_require:
-# - [image]: Pillow>=10.0.0 (for BMP, TIFF, GIF, WebP format conversion)
-# - [text]: reportlab>=4.0.0 (for TXT, MD to PDF conversion)
-# - [office]: requires LibreOffice (external program, not Python package)
-# - [all]: includes all optional dependencies
-#
-# Install with: pip install raganything[image,text] or pip install raganything[all]
+protobuf==3.20.2
+google-api-core==2.19.2
+googleapis-common-protos==1.63.2
+proto-plus==1.24.0
+
+# RAG pipeline
+lightrag-hku
+mineru[core]
+huggingface_hub
+sentence-transformers
+tqdm
+
+# Document helpers
+pypdf
+PyMuPDF
+Pillow>=10.0.0
+reportlab>=4.0.0

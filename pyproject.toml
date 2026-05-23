@@ -3,12 +3,12 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "raganything"
+name = "rag-system"
 dynamic = ["version"]
 authors = [
-    {name = "Zirui Guo"}
+    {name = "ef1026"}
 ]
-description = "RAGAnything: All-in-One RAG System"
+description = "FastAPI and Next.js teaching assistant built with LightRAG, RAG-Anything, and MinerU GPU parsing"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -21,10 +21,23 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "streamlit",
+    "python-dotenv",
+    "nest_asyncio",
+    "protobuf==3.20.2",
+    "google-api-core==2.19.2",
+    "googleapis-common-protos==1.63.2",
+    "proto-plus==1.24.0",
     "huggingface_hub",
     "lightrag-hku",
     "mineru[core]",
+    "sentence-transformers",
     "tqdm",
+    "pypdf",
+    "PyMuPDF",
 ]
 
 [project.optional-dependencies]
@@ -45,10 +58,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/HKUDS/RAG-Anything"
-Documentation = "https://github.com/HKUDS/RAG-Anything"
-Repository = "https://github.com/HKUDS/RAG-Anything"
-Issues = "https://github.com/HKUDS/RAG-Anything/issues"
+Homepage = "https://github.com/ef1026/rag_system"
+Documentation = "https://github.com/ef1026/rag_system#readme"
+Repository = "https://github.com/ef1026/rag_system"
+Issues = "https://github.com/ef1026/rag_system/issues"
 
 [tool.uv]
 dev-dependencies = [
