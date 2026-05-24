@@ -29,3 +29,7 @@ export type ChatResponse = {
   answer: string;
   sources: SourceItem[];
 };
+
+export type CacheResponse = {
+  ok: boolean;
+};

@@ -1,5 +1,6 @@
 import type {
   ApiHealth,
+  CacheResponse,
   ChatRequest,
   ChatResponse,
   ProcessResponse,
@@ -33,7 +34,7 @@ export const api = {
   upload: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return request<UploadResponse>("/api/documents/upload", {
+    return request<UploadResponse>("/api/upload", {
       method: "POST",
       body: formData,
     });
@@ -49,5 +50,5 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   clearRuntime: () =>
-    request<{ ok: boolean }>("/api/runtime/clear", { method: "POST" }),
+    request<CacheResponse>("/api/cache", { method: "DELETE" }),
 };

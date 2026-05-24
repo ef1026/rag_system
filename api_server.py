@@ -13,17 +13,19 @@ import shutil
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Literal, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from lightrag.llm.openai import openai_complete_if_cache
 from lightrag.utils import EmbeddingFunc
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 
 from raganything import RAGAnything, RAGAnythingConfig
+from raganything.utils import insert_text_content, separate_content
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -37,9 +39,13 @@ ANSWER_LEVELS = {
     "undergraduate": "请按定义、公式、物理含义、常见考点的顺序回答。",
     "expert": "请直接进入机制、边界条件、推导要点和局限性。",
 }
+TEXT_ONLY_INDEXED_MESSAGE = "Document parsed and text-only indexed. MVP text-only mode is active."
 
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+_rag_instance: Optional[RAGAnything] = None
+_rag_lock: asyncio.Lock = asyncio.Lock()
 
 
 def load_runtime_config() -> None:
@@ -97,7 +103,7 @@ def load_content_list(path: Path) -> list[dict]:
     return [item for item in data if isinstance(item, dict)]
 
 
-def document_status(pdf_path: Path) -> str:
+def document_status(pdf_path: Path) -> Literal["uploaded", "processed"]:
     return "processed" if content_list_path(pdf_path) else "uploaded"
 
 
@@ -202,7 +208,7 @@ def clean_lightrag_kwargs(kwargs: dict) -> dict:
 
 
 def build_rag() -> RAGAnything:
-    llm_func, vision_func = build_model_functions()
+    llm_func, _vision_func = build_model_functions()
     config = RAGAnythingConfig(
         working_dir=str(RAG_STORAGE_DIR),
         parser_output_dir=str(OUTPUT_DIR),
@@ -212,12 +218,56 @@ def build_rag() -> RAGAnything:
         mineru_device=os.getenv("MINERU_DEVICE", "cuda"),
         mineru_source=os.getenv("MINERU_SOURCE", "modelscope"),
         mineru_vram=as_int(os.getenv("MINERU_VRAM"), 0),
+        enable_image_processing=False,
+        enable_table_processing=False,
+        enable_equation_processing=False,
     )
     return RAGAnything(
         config=config,
         llm_model_func=llm_func,
-        vision_model_func=vision_func,
+        vision_model_func=None,
         embedding_func=build_embedding_func(),
+    )
+
+
+async def get_rag() -> RAGAnything:
+    global _rag_instance
+    if _rag_instance is None:
+        async with _rag_lock:
+            if _rag_instance is None:
+                _rag_instance = build_rag()
+    return _rag_instance
+
+
+def knowledge_base_not_ready_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": "knowledge_base_not_ready",
+            "message": "知识库尚未就绪，请先解析文档后再提问。",
+        },
+    )
+
+
+async def process_document_text_only(rag: RAGAnything, pdf_path: Path) -> None:
+    content_list, doc_id = await rag.parse_document(
+        file_path=str(pdf_path),
+        output_dir=str(OUTPUT_DIR),
+        parse_method=os.getenv("PARSE_METHOD", "auto"),
+        display_stats=rag.config.display_content_stats,
+    )
+    text_content, _multimodal_items = separate_content(content_list)
+    if not text_content.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="No text content was extracted from the document.",
+        )
+
+    await insert_text_content(
+        rag.lightrag,
+        input=text_content,
+        file_paths=rag._get_file_reference(str(pdf_path)),
+        ids=doc_id,
     )
 
 
@@ -225,7 +275,7 @@ class DocumentSummary(BaseModel):
     id: str
     name: str
     size: int
-    status: str
+    status: Literal["uploaded", "processed"]
 
 
 class SourceItem(BaseModel):
@@ -255,6 +305,10 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[SourceItem]
+
+
+class CacheResponse(BaseModel):
+    ok: bool
 
 
 class HealthResponse(BaseModel):
@@ -336,7 +390,7 @@ async def list_documents() -> list[DocumentSummary]:
     return [summarize_document(path) for path in sorted(UPLOAD_DIR.glob("*.pdf"))]
 
 
-@app.post("/api/documents/upload", response_model=UploadResponse)
+@app.post("/api/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...)) -> UploadResponse:
     filename = safe_document_id(file.filename or "")
     if Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
@@ -352,7 +406,7 @@ async def upload_document(file: UploadFile = File(...)) -> UploadResponse:
 @app.post("/api/documents/{document_id}/process", response_model=ProcessResponse)
 async def process_document(document_id: str) -> ProcessResponse:
     pdf_path = document_path(document_id)
-    rag = build_rag()
+    rag = await get_rag()
     init_result = await rag._ensure_lightrag_initialized()
     if not init_result.get("success"):
         raise HTTPException(
@@ -360,52 +414,50 @@ async def process_document(document_id: str) -> ProcessResponse:
             detail=init_result.get("error", "LightRAG initialization failed"),
         )
 
-    await rag.process_document_complete(
-        file_path=str(pdf_path),
-        output_dir=str(OUTPUT_DIR),
-        parse_method=os.getenv("PARSE_METHOD", "auto"),
-    )
+    await process_document_text_only(rag, pdf_path)
     return ProcessResponse(
         document=summarize_document(pdf_path),
-        message="Document parsed and indexed.",
-        sources=extract_sources(pdf_path),
+        message=TEXT_ONLY_INDEXED_MESSAGE,
+        sources=[],
     )
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
     level_prompt = ANSWER_LEVELS.get(request.level, ANSWER_LEVELS["undergraduate"])
-    rag = build_rag()
+    rag = await get_rag()
+    pdf_path: Path | None = None
 
     if request.document_id:
         pdf_path = document_path(request.document_id)
         if document_status(pdf_path) != "processed":
-            await rag.process_document_complete(
-                file_path=str(pdf_path),
-                output_dir=str(OUTPUT_DIR),
-                parse_method=os.getenv("PARSE_METHOD", "auto"),
-            )
+            return knowledge_base_not_ready_response()
     else:
         pdfs = sorted(UPLOAD_DIR.glob("*.pdf")) if UPLOAD_DIR.exists() else []
         pdf_path = pdfs[0] if pdfs else None
-        init_result = await rag._ensure_lightrag_initialized()
-        if not init_result.get("success"):
-            raise HTTPException(
-                status_code=500,
-                detail=init_result.get("error", "LightRAG initialization failed"),
-            )
+        if pdf_path and document_status(pdf_path) != "processed":
+            return knowledge_base_not_ready_response()
+
+    init_result = await rag._ensure_lightrag_initialized()
+    if not init_result.get("success") or rag.lightrag is None:
+        return knowledge_base_not_ready_response()
 
     prompt = f"{request.question.strip()}\n\n回答风格：{level_prompt}"
-    answer = await rag.aquery(prompt, mode=request.mode)
+    try:
+        answer = await rag.aquery(prompt, mode=request.mode)
+    except ValueError as error:
+        if "No LightRAG instance available" in str(error):
+            return knowledge_base_not_ready_response()
+        raise
     return ChatResponse(
         answer=answer,
-        sources=extract_sources(pdf_path) if pdf_path else [],
+        sources=[],
     )
 
 
-@app.post("/api/runtime/clear")
-async def clear_runtime_cache() -> dict[str, bool]:
+@app.delete("/api/cache", response_model=CacheResponse)
+async def clear_runtime_cache() -> CacheResponse:
     for path in (RAG_STORAGE_DIR, OUTPUT_DIR):
         if path.exists():
             shutil.rmtree(path)
-    return {"ok": True}
+    return CacheResponse(ok=True)
