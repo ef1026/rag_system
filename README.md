@@ -8,7 +8,7 @@
 2. PDF 保存到 `uploads/`。
 3. `api_server.py` 调用 `raganything.parser.MineruParser` 和 RAG-Anything 解析文档。
 4. 解析结果写入 `output/`，向量、图谱和缓存写入 `rag_storage/`。
-5. `RAGAnything.process_document_complete()` 将文本、图片、表格、公式等内容写入 LightRAG。
+5. 默认 text-only MVP 只写入文本；设置 `ENABLE_MULTIMODAL=true` 后，`RAGAnything.process_document_complete()` 才会按开关处理图片、表格和公式。
 6. 用户提问时，前端调用 FastAPI，后端通过 `RAGAnything.aquery()` 检索知识库并调用 Qwen 生成回答。
 
 ## 目录
@@ -61,21 +61,44 @@ Copy-Item env.example .env
 Qwen/DashScope 配置：
 
 ```env
-QWEN_API_KEY=your_qwen_dashscope_api_key
+ENABLE_MULTIMODAL=false
+ENABLE_IMAGE_PROCESSING=true
+ENABLE_TABLE_PROCESSING=false
+ENABLE_EQUATION_PROCESSING=false
+
+QWEN_API_KEY=
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN_MODEL=qwen-vl-max
+QWEN_VL_MODEL=qwen-vl-max
 
 LLM_MODEL=qwen-plus
 LLM_BINDING_HOST=https://dashscope.aliyuncs.com/compatible-mode/v1
-LLM_BINDING_API_KEY=your_qwen_dashscope_api_key
+LLM_BINDING_API_KEY=
 ```
 
 说明：
 
 - `LLM_*` 用于普通文本问答、RAG 总结和知识库写入阶段的语言模型调用。
-- `QWEN_*` 用于图片、表格截图、公式截图等视觉理解。
+- `ENABLE_MULTIMODAL=false` 是默认值，上传、解析、LightRAG text indexing 和 `/api/chat` 仍走 text-only MVP。
+- `ENABLE_MULTIMODAL=true` 时，`ENABLE_IMAGE_PROCESSING`、`ENABLE_TABLE_PROCESSING`、`ENABLE_EQUATION_PROCESSING` 分别控制图片、表格、公式处理。
+- `QWEN_*` 用于 qwen-vl-max 图片理解；如果启用图片处理但缺少 `QWEN_API_KEY`，后端会记录 warning 并自动禁用 image processing，不影响服务启动。
 - `QWEN_API_KEY` 和 `LLM_BINDING_API_KEY` 可以填同一把 DashScope API key。
 - 如果只填了 `QWEN_API_KEY`，代码也会自动把它用于文本模型调用。
+
+启用 image-only 多模态：
+
+```env
+ENABLE_MULTIMODAL=true
+ENABLE_IMAGE_PROCESSING=true
+ENABLE_TABLE_PROCESSING=false
+ENABLE_EQUATION_PROCESSING=false
+QWEN_API_KEY=your_qwen_dashscope_api_key
+```
+
+回滚到 text-only：
+
+```env
+ENABLE_MULTIMODAL=false
+```
 
 MinerU 默认 GPU 模式：
 
@@ -134,6 +157,17 @@ conda activate advdoc
 python -m py_compile app.py raganything\parser.py raganything\processor.py raganything\raganything.py
 python -m raganything.parser --check
 ```
+
+## Vision smoke test
+
+Use this helper to test the qwen-vl-max `vision_func` path with one local image. It does not use the frontend and does not process a PDF.
+
+```powershell
+conda activate advdoc
+python scripts/test_vision_func.py path\to\image.jpg
+```
+
+The script reads `QWEN_API_KEY` from `.env` or the current environment and exits with a clear message if the key or image file is missing.
 
 查看 MinerU 实际命令：
 
