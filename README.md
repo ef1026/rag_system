@@ -8,7 +8,7 @@
 2. PDF 保存到 `uploads/`。
 3. `api_server.py` 调用 `raganything.parser.MineruParser` 和 RAG-Anything 解析文档。
 4. 解析结果写入 `output/`，向量、图谱和缓存写入 `rag_storage/`。
-5. 默认 text-only MVP 只写入文本；设置 `ENABLE_MULTIMODAL=true` 后，`RAGAnything.process_document_complete()` 才会按开关处理图片、表格和公式。
+5. 默认启用多模态处理；如需 text-only，可设置 `ENABLE_MULTIMODAL=false`。
 6. 用户提问时，前端调用 FastAPI，后端通过 `RAGAnything.aquery()` 检索知识库并调用 Qwen 生成回答。
 
 ## 目录
@@ -61,10 +61,18 @@ Copy-Item env.example .env
 Qwen/DashScope 配置：
 
 ```env
-ENABLE_MULTIMODAL=false
+ENABLE_MULTIMODAL=true
 ENABLE_IMAGE_PROCESSING=true
-ENABLE_TABLE_PROCESSING=false
-ENABLE_EQUATION_PROCESSING=false
+ENABLE_TABLE_PROCESSING=true
+ENABLE_EQUATION_PROCESSING=true
+ENABLE_FORMULA_PROCESSING=true
+ENABLE_GENERIC_PROCESSING=false
+
+MAX_IMAGE_ITEMS=0
+MAX_TABLE_ITEMS=0
+MAX_EQUATION_ITEMS=0
+MAX_FORMULA_ITEMS=0
+MAX_GENERIC_ITEMS=0
 
 QWEN_API_KEY=
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
@@ -78,8 +86,10 @@ LLM_BINDING_API_KEY=
 说明：
 
 - `LLM_*` 用于普通文本问答、RAG 总结和知识库写入阶段的语言模型调用。
-- `ENABLE_MULTIMODAL=false` 是默认值，上传、解析、LightRAG text indexing 和 `/api/chat` 仍走 text-only MVP。
-- `ENABLE_MULTIMODAL=true` 时，`ENABLE_IMAGE_PROCESSING`、`ENABLE_TABLE_PROCESSING`、`ENABLE_EQUATION_PROCESSING` 分别控制图片、表格、公式处理。
+- `ENABLE_MULTIMODAL=true` 是推荐默认值；如需回滚到 text-only，可设为 `false`。
+- `ENABLE_IMAGE_PROCESSING`、`ENABLE_TABLE_PROCESSING`、`ENABLE_EQUATION_PROCESSING`、`ENABLE_FORMULA_PROCESSING` 分别控制图片、表格、公式和 formula item 处理。
+- `ENABLE_GENERIC_PROCESSING=false` 默认关闭 generic item；只有显式开启后才会处理 generic。
+- `MAX_IMAGE_ITEMS`、`MAX_TABLE_ITEMS`、`MAX_EQUATION_ITEMS`、`MAX_FORMULA_ITEMS`、`MAX_GENERIC_ITEMS` 控制每类多模态 item 的处理上限。`0`、`-1`、`unlimited`、`none` 表示无限制；如担心成本，可设置正整数，例如 `MAX_IMAGE_ITEMS=5` 或 `MAX_EQUATION_ITEMS=10`。
 - `QWEN_*` 用于 qwen-vl-max 图片理解；如果启用图片处理但缺少 `QWEN_API_KEY`，后端会记录 warning 并自动禁用 image processing，不影响服务启动。
 - `QWEN_API_KEY` 和 `LLM_BINDING_API_KEY` 可以填同一把 DashScope API key。
 - 如果只填了 `QWEN_API_KEY`，代码也会自动把它用于文本模型调用。
@@ -91,6 +101,7 @@ ENABLE_MULTIMODAL=true
 ENABLE_IMAGE_PROCESSING=true
 ENABLE_TABLE_PROCESSING=false
 ENABLE_EQUATION_PROCESSING=false
+ENABLE_FORMULA_PROCESSING=false
 QWEN_API_KEY=your_qwen_dashscope_api_key
 ```
 
@@ -168,6 +179,75 @@ python scripts/test_vision_func.py path\to\image.jpg
 ```
 
 The script reads `QWEN_API_KEY` from `.env` or the current environment and exits with a clear message if the key or image file is missing.
+
+## RAG pipeline status
+
+The current FastAPI pipeline is:
+
+- Upload: `/api/upload` saves PDFs in `uploads/`.
+- Parser: `api_server.py` calls RAG-Anything with MinerU. MinerU output is written under `output/<document>/<method>/`, including `<stem>_content_list.json`, markdown, intermediate JSON files, rendered PDFs, and extracted images.
+- Content split: `raganything.utils.separate_content()` separates `content_list` into text content and multimodal items. The backend further normalizes image, table, equation, formula, and generic items before multimodal indexing.
+- Text chunking/indexing: text is inserted through `insert_text_content()` into a document-scoped LightRAG instance. Each PDF writes to `rag_storage/documents/<safe-document-key>/`, including its own `kv_store_text_chunks.json` and `vdb_chunks.json`.
+- Multimodal indexing: when `ENABLE_MULTIMODAL=true`, enabled multimodal processors generate descriptions/chunks for image, table, equation, and formula items, then write them into that same document-scoped LightRAG chunk/vector/graph store.
+- Embedding: `EMBEDDING_LOCAL_MODEL`, default `BAAI/bge-small-zh-v1.5`, is loaded server-side with `SentenceTransformer`. No embedding key is exposed to the frontend.
+- Vector store: LightRAG local JSON vector stores in `rag_storage/documents/<safe-document-key>/vdb_*.json`.
+- Graph store: LightRAG graph data in `rag_storage/documents/<safe-document-key>/graph_chunk_entity_relation.graphml` plus entity/relation KV stores.
+- Retrieval mode: `/api/chat` defaults to `hybrid`; the frontend currently sends `mode: "hybrid"`. Chat requires `document_id` and loads only that document's scoped storage.
+- VLM enhanced query: enabled automatically when `ENABLE_MULTIMODAL=true`, image processing is enabled, and a vision model function is available. If no valid images are found in retrieved context, RAG-Anything falls back to normal text query.
+- Rerank: controlled by `ENABLE_RERANK`, `RERANK_BINDING`, `RERANK_MODEL`, `RERANK_BINDING_API_KEY`, optional `RERANK_BASE_URL`, and optional `RERANK_TOP_N`. Default is disabled. If rerank is requested but model/provider/key initialization is unavailable, chat automatically passes `enable_rerank=false` and continues without rerank.
+- Sources/citations: document preview sources are extracted from MinerU `content_list`; chat responses currently return `sources: []` because retrieval raw data is not mapped back to source/page/score metadata yet.
+
+Document-scoped retrieval:
+
+- New processing runs no longer use the legacy global `rag_storage/` index for chat retrieval.
+- Existing documents parsed before document-scoped storage must be processed again so their indexes are created under `rag_storage/documents/<safe-document-key>/`.
+- The backend does not migrate or fall back to legacy global indexes; if a selected document has no scoped storage, `/api/chat` returns knowledge-base-not-ready.
+
+Development status endpoint:
+
+```powershell
+curl http://127.0.0.1:8000/api/rag/status
+```
+
+Stable no-rerank mode:
+
+```env
+ENABLE_RERANK=false
+RERANK_MODEL=
+```
+
+To enable remote rerank, configure a supported LightRAG rerank provider on the backend only:
+
+```env
+ENABLE_RERANK=true
+RERANK_BINDING=aliyun
+RERANK_MODEL=gte-rerank-v2
+RERANK_BINDING_API_KEY=your_backend_only_key
+# RERANK_BASE_URL=
+# RERANK_TOP_N=20
+```
+
+For DashScope/Aliyun, `RERANK_BINDING_API_KEY` may reuse the same DashScope key as `QWEN_API_KEY` if that key has access to the rerank model. Keeping `RERANK_BINDING_API_KEY` separate is recommended so the frontend never receives any LLM, embedding, vector DB, database, or rerank key.
+
+`GET /api/rag/status` includes the effective retrieval status:
+
+```json
+{
+  "retrieval": {
+    "default_mode": "hybrid",
+    "rerank_requested": true,
+    "rerank_enabled": true,
+    "rerank_model": "gte-rerank-v2",
+    "rerank_provider": "aliyun",
+    "rerank_model_loaded": true,
+    "rerank_last_error": null,
+    "reason": null,
+    "rerank_top_n": 20
+  }
+}
+```
+
+If rerank is requested but unavailable, `rerank_requested` remains `true`, `rerank_enabled` is `false`, and `reason` is set to values such as `missing_model`, `missing_api_key`, or `provider_init_failed`.
 
 查看 MinerU 实际命令：
 

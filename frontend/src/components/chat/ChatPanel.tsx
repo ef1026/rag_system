@@ -1,15 +1,41 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  extractInlineImageIds,
+  MarkdownAnswer,
+} from "@/components/chat/MarkdownAnswer";
+import { RelatedImages } from "@/components/chat/RelatedImages";
 import { Button } from "@/components/ui/Button";
-import { sourceLabel } from "@/lib/format";
-import type { AnswerLevel, ChatMessage } from "@/types/chat";
+import type { RAGRetrievalStatus } from "@/types/api";
+import type { AnswerLevel, ChatMode, ChatMessage, Conversation } from "@/types/chat";
 
 type ChatPanelProps = {
-  messages: ChatMessage[];
-  selectedDocumentId: string;
+  conversation: Conversation | null;
+  selectedDocumentIds: string[];
+  selectedDocumentNames: string[];
+  boundDocumentIssue?: string;
   isAsking: boolean;
-  onAsk: (question: string, documentId: string, level: AnswerLevel) => Promise<void>;
+  statusMessage?: string;
+  isProcessing?: boolean;
+  isWarmingUp?: boolean;
+  warmupError?: string;
+  ragRetrievalStatus?: RAGRetrievalStatus | null;
+  onAsk: (
+    question: string,
+    level: AnswerLevel,
+    chatMode: ChatMode,
+  ) => Promise<boolean>;
+  onClearHistory: () => void;
+  onLevelChange: (level: AnswerLevel) => void;
+  onChatModeChange: (chatMode: ChatMode) => void;
 };
 
 const levels: { value: AnswerLevel; label: string }[] = [
@@ -18,83 +44,348 @@ const levels: { value: AnswerLevel; label: string }[] = [
   { value: "expert", label: "专家" },
 ];
 
+const retrievalModes: {
+  value: ChatMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "multimodal",
+    label: "多模态精读",
+    description: "更慢，会分析图片和公式。",
+  },
+  {
+    value: "fast_text",
+    label: "快速文本",
+    description: "更快，主要基于文本索引回答。",
+  },
+];
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
+
 export function ChatPanel({
-  messages,
-  selectedDocumentId,
+  conversation,
+  selectedDocumentIds,
+  selectedDocumentNames,
+  boundDocumentIssue,
   isAsking,
+  statusMessage,
+  isProcessing,
+  isWarmingUp,
+  warmupError,
+  ragRetrievalStatus,
   onAsk,
+  onClearHistory,
+  onLevelChange,
+  onChatModeChange,
 }: ChatPanelProps) {
   const [question, setQuestion] = useState("");
-  const [level, setLevel] = useState<AnswerLevel>("undergraduate");
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isSubmittingRef = useRef(false);
+  const messages = conversation?.messages ?? EMPTY_MESSAGES;
+  const level = conversation?.level || "undergraduate";
+  const chatMode = conversation?.chatMode || "multimodal";
+  const askDisabledReason = getAskDisabledReason({
+    hasConversation: Boolean(conversation),
+    selectedDocumentIds,
+    isProcessing,
+    boundDocumentIssue,
+  });
+  const canAsk = !askDisabledReason;
+  const currentDocumentLabel = getSelectedDocumentsLabel(selectedDocumentNames);
+  const placeholder = getPlaceholder({
+    hasConversation: Boolean(conversation),
+    selectedDocumentIds,
+    isProcessing,
+    boundDocumentIssue,
+  });
+  const selectedRetrievalMode = retrievalModes.find(
+    (item) => item.value === chatMode,
+  )!;
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await onAsk(question, selectedDocumentId, level);
+  useEffect(() => {
+    const element = messageListRef.current;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight });
+  }, [
+    messages,
+    selectedDocumentIds,
+    statusMessage,
+    isAsking,
+    isWarmingUp,
+    warmupError,
+  ]);
+
+  useLayoutEffect(() => {
+    resizeQuestionInput(textareaRef.current);
+  }, [question]);
+
+  async function submitQuestion() {
+    const originalQuestion = question;
+    const trimmedQuestion = originalQuestion.trim();
+    if (!trimmedQuestion || !canAsk || isAsking || isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
     setQuestion("");
+    try {
+      const didAsk = await onAsk(originalQuestion, level, chatMode);
+      if (!didAsk) {
+        setQuestion(originalQuestion);
+      }
+    } finally {
+      isSubmittingRef.current = false;
+      window.requestAnimationFrame(() => textareaRef.current?.focus());
+    }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitQuestion();
+  }
+
+  function handleQuestionKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.nativeEvent.isComposing || event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    void submitQuestion();
   }
 
   return (
     <section className="chat-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="section-label">Ask</p>
-          <h2>基于知识库提问</h2>
+      <div className="chat-panel-header">
+        <div className="chat-title-block">
+          <p className="section-label">Chat</p>
+          <h2>知识问答</h2>
+          <div className="chat-document-row">
+            <div className="current-document">
+              <span>已选择 {selectedDocumentIds.length} 个文档：</span>
+              <strong title={selectedDocumentNames.join("、") || "未选择文档"}>
+                {currentDocumentLabel || "未选择文档"}
+              </strong>
+              <small className="history-note">
+                {conversation
+                  ? `当前对话：${conversation.title}`
+                  : "请新建对话后开始提问"}
+              </small>
+            </div>
+            <div className="mode-selector">
+              <div className="mode-selector-heading">
+                <span>检索模式</span>
+                <span
+                  className="mode-help"
+                  title="多模态精读：更慢，会分析图片和公式。快速文本：更快，主要基于文本索引回答。"
+                  aria-label="检索模式说明"
+                >
+                  ?
+                </span>
+              </div>
+              <div
+                className="segmented-control retrieval-mode-control"
+                aria-label="检索模式"
+              >
+                {retrievalModes.map((item) => (
+                  <button
+                    type="button"
+                    key={item.value}
+                    className={item.value === chatMode ? "active" : ""}
+                    disabled={!conversation}
+                    onClick={() => onChatModeChange(item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mode-description">{selectedRetrievalMode.description}</p>
+              <div className="retrieval-runtime">
+                <span>{ragRetrievalStatus?.default_mode || "hybrid"} retrieval</span>
+                <span>
+                  Rerank {ragRetrievalStatus?.rerank_enabled ? "enabled" : "disabled"}
+                </span>
+                {ragRetrievalStatus?.rerank_model ? (
+                  <span title={ragRetrievalStatus.rerank_provider || undefined}>
+                    {ragRetrievalStatus.rerank_model}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="segmented-control" aria-label="回答深度">
-          {levels.map((item) => (
-            <button
-              type="button"
-              key={item.value}
-              className={item.value === level ? "active" : ""}
-              onClick={() => setLevel(item.value)}
-            >
-              {item.label}
-            </button>
-          ))}
+
+        <div className="chat-controls">
+          <div className="answer-depth-control">
+            <span className="control-label">回答深度</span>
+            <div className="segmented-control" aria-label="回答深度">
+              {levels.map((item) => (
+                <button
+                  type="button"
+                  key={item.value}
+                  className={item.value === level ? "active" : ""}
+                  disabled={!conversation}
+                  onClick={() => onLevelChange(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="history-clear-button"
+            disabled={!conversation || messages.length === 0}
+            onClick={onClearHistory}
+          >
+            清空当前对话
+          </Button>
         </div>
       </div>
 
-      <div className="message-list">
-        {messages.length === 0 ? (
-          <p className="empty-state">输入问题后，回答和引用会保留在当前会话中。</p>
-        ) : (
-          messages.map((message) => <MessageBubble key={message.id} message={message} />)
-        )}
+      <div className="message-list" ref={messageListRef}>
+        {!conversation ? <p className="empty-state">请新建对话</p> : null}
+        {conversation && messages.length === 0 ? (
+          <p className="empty-state">当前会话还没有消息。</p>
+        ) : null}
+        {conversation && isWarmingUp ? (
+          <p className="chat-status">正在预热知识库...</p>
+        ) : null}
+        {conversation && warmupError ? (
+          <p className="chat-status muted">{warmupError}</p>
+        ) : null}
+        {messages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
       </div>
 
       <form className="question-form" onSubmit={submit}>
         <textarea
+          ref={textareaRef}
           value={question}
-          placeholder="例如：请解释达朗贝尔公式的推导思路，并列出关键边界条件。"
+          placeholder={placeholder}
+          rows={2}
           onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={handleQuestionKeyDown}
+          readOnly={isAsking}
         />
         <Button
           type="submit"
           variant="primary"
-          disabled={isAsking || !question.trim()}
+          disabled={isAsking || !question.trim() || !canAsk}
         >
           {isAsking ? "生成中..." : "生成回答"}
         </Button>
+        {askDisabledReason ? <p className="composer-note">{askDisabledReason}</p> : null}
+        {statusMessage ? <p className="chat-status composer-note">{statusMessage}</p> : null}
       </form>
     </section>
   );
 }
 
+function getAskDisabledReason({
+  hasConversation,
+  selectedDocumentIds,
+  isProcessing,
+  boundDocumentIssue,
+}: {
+  hasConversation: boolean;
+  selectedDocumentIds: string[];
+  isProcessing?: boolean;
+  boundDocumentIssue?: string;
+}) {
+  if (!hasConversation) return "请新建对话";
+  if (boundDocumentIssue) return boundDocumentIssue;
+  if (!selectedDocumentIds.length) return "请至少选择一个可提问文档";
+  if (isProcessing) return "当前文档正在索引";
+  return "";
+}
+
+function getPlaceholder({
+  hasConversation,
+  selectedDocumentIds,
+  isProcessing,
+  boundDocumentIssue,
+}: {
+  hasConversation: boolean;
+  selectedDocumentIds: string[];
+  isProcessing?: boolean;
+  boundDocumentIssue?: string;
+}) {
+  if (!hasConversation) return "请新建对话";
+  if (boundDocumentIssue) return boundDocumentIssue;
+  if (!selectedDocumentIds.length) return "请至少选择一个可提问文档";
+  if (isProcessing) return "当前文档正在索引";
+  if (selectedDocumentIds.length > 1) {
+    return `正在基于 ${selectedDocumentIds.length} 个文档提问...`;
+  }
+  return "正在基于 1 个文档提问...";
+}
+
+function getSelectedDocumentsLabel(documentNames: string[]) {
+  if (!documentNames.length) return "";
+  const visibleNames = documentNames.slice(0, 2).join("、");
+  return documentNames.length > 2
+    ? `${visibleNames} 等 ${documentNames.length} 个文档`
+    : visibleNames;
+}
+
+function resizeQuestionInput(textarea: HTMLTextAreaElement | null) {
+  if (!textarea) return;
+
+  textarea.style.height = "auto";
+  const styles = window.getComputedStyle(textarea);
+  const lineHeight = Number.parseFloat(styles.lineHeight) || 24;
+  const padding =
+    Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom);
+  const border =
+    Number.parseFloat(styles.borderTopWidth) +
+    Number.parseFloat(styles.borderBottomWidth);
+  const minHeight = lineHeight * 2 + padding + border;
+  const maxHeight = lineHeight * 6 + padding + border;
+  const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
 function MessageBubble({ message }: { message: ChatMessage }) {
+  const fallbackImages = getFallbackRelatedImages(message);
+
   return (
     <article className={`message message-${message.role}`}>
       <div className="message-role">{message.role === "user" ? "你" : "AI 助教"}</div>
-      <p>{message.content}</p>
-      {message.sources?.length ? (
-        <div className="message-sources">
-          {message.sources.slice(0, 4).map((source) => (
-            <span key={source.id}>
-              {sourceLabel(source.type)}
-              {source.page ? ` P${source.page}` : ""}
-            </span>
-          ))}
-        </div>
+      {message.role === "assistant" ? (
+        <>
+          <MarkdownAnswer
+            content={message.content}
+            relatedImages={message.relatedImages}
+          />
+          <RelatedImages images={fallbackImages} />
+        </>
+      ) : (
+        <p>{message.content}</p>
+      )}
+      {message.status === "failed" ? (
+        <p className="message-state">
+          回答生成失败，已保留该问题。
+          {message.error ? ` ${message.error}` : ""}
+        </p>
       ) : null}
     </article>
   );
+}
+
+function getFallbackRelatedImages(message: ChatMessage) {
+  if (!message.relatedImages?.length) return undefined;
+
+  const inlineImageIds = new Set(extractInlineImageIds(message.content));
+  if (inlineImageIds.size === 0) {
+    return message.relatedImages;
+  }
+
+  const images = message.relatedImages.filter(
+    (image) => !inlineImageIds.has(image.imageId),
+  );
+  return images.length ? images : undefined;
 }

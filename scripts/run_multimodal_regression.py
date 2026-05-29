@@ -19,6 +19,18 @@ DEFAULT_QUESTIONS = {
     "full": "请结合文字、图片、表格和公式总结这份文档。",
 }
 
+GENERIC_SUMMARY_QUESTION = "请给出这个 PDF 的详细总结"
+
+EMPTY_CONTEXT_ANSWER_MARKERS = (
+    "Document Chunks 为空",
+    "Context 中不包含任何实际",
+    "Context 不包含文档内容",
+    "Reference Document List 也为空",
+    "无法获取该 PDF 的总体文本",
+    "no document chunks",
+    "empty context",
+)
+
 EXPECTED_ENV_HINTS = {
     "text": "ENABLE_MULTIMODAL=false",
     "image": (
@@ -66,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         help="Expected backend mode. The script does not modify .env.",
     )
     parser.add_argument("--question", help="Question to send to /api/chat.")
+    parser.add_argument(
+        "--question-generic-summary",
+        action="store_true",
+        help='Use the generic summary question: "请给出这个 PDF 的详细总结".',
+    )
     parser.add_argument(
         "--base-url",
         default="http://127.0.0.1:8000",
@@ -119,6 +136,11 @@ def save_report(output_path: str | None, report: dict) -> None:
     print("Saved report:", path)
 
 
+def answer_has_empty_context_marker(answer: str) -> bool:
+    normalized = answer.lower()
+    return any(marker.lower() in normalized for marker in EMPTY_CONTEXT_ANSWER_MARKERS)
+
+
 def main() -> int:
     args = parse_args()
     pdf_path = Path(args.pdf)
@@ -129,7 +151,11 @@ def main() -> int:
         print(f"[FAIL] Only PDF files are supported: {pdf_path}", file=sys.stderr)
         return 2
 
-    question = args.question or DEFAULT_QUESTIONS[args.mode]
+    question = (
+        GENERIC_SUMMARY_QUESTION
+        if args.question_generic_summary
+        else args.question or DEFAULT_QUESTIONS[args.mode]
+    )
     document_id = pdf_path.name
     encoded_id = quote(document_id, safe="")
 
@@ -145,6 +171,7 @@ def main() -> int:
         "pdf": str(pdf_path),
         "document_id": document_id,
         "base_url": args.base_url,
+        "question": question,
         "steps": {},
     }
 
@@ -271,6 +298,13 @@ def main() -> int:
     print("Chat answer present:", bool(answer.strip()))
     if not answer.strip():
         print("[FAIL] chat response has no answer.", file=sys.stderr)
+        save_report(args.output, report)
+        return 1
+    if answer_has_empty_context_marker(answer):
+        print(
+            "[FAIL] chat answer indicates empty document context.",
+            file=sys.stderr,
+        )
         save_report(args.output, report)
         return 1
 

@@ -7,7 +7,7 @@ type SourceListProps = {
 
 export function SourceList({ sources }: SourceListProps) {
   if (!sources.length) {
-    return <p className="empty-state">解析后会在这里显示可引用片段。</p>;
+    return <p className="empty-state">解析或问答后，这里会显示可引用片段。</p>;
   }
 
   return (

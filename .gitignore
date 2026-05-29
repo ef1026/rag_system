@@ -73,6 +73,8 @@ tiktoken_cache/
 
 # unit-test files
 test_*
+test-pdfs/
+test-results/
 
 # Cline files
 memory-bank/

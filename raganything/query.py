@@ -6,8 +6,9 @@ Contains all query-related methods for both text and multimodal queries
 
 import json
 import hashlib
+import os
 import re
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from pathlib import Path
 from lightrag import QueryParam
 from lightrag.utils import always_get_an_event_loop
@@ -21,6 +22,52 @@ from raganything.utils import (
 
 class QueryMixin:
     """QueryMixin class containing query functionality for RAGAnything"""
+
+    def _normalized_image_path_key(self, path: str) -> str:
+        try:
+            resolved = Path(path).resolve(strict=False)
+        except (OSError, RuntimeError):
+            resolved = Path(path)
+        return os.path.normcase(str(resolved))
+
+    def _vlm_image_metadata_for_path(self, image_path: str) -> Optional[Dict[str, Any]]:
+        registry = getattr(self, "_image_assets_for_vlm", {})
+        if not isinstance(registry, dict):
+            return None
+        metadata = registry.get(self._normalized_image_path_key(image_path))
+        return metadata if isinstance(metadata, dict) else None
+
+    def _format_vlm_image_label(self, metadata: Dict[str, Any]) -> str:
+        image_id = str(metadata.get("image_id") or "").strip()
+        document_name = str(
+            metadata.get("document_name") or metadata.get("document_id") or ""
+        ).strip()
+        caption = str(metadata.get("caption") or "").strip() or "无"
+        page = metadata.get("page")
+        page_text = str(page) if isinstance(page, int) else "未知"
+        source_type = str(metadata.get("source_type") or "image").strip()
+        return (
+            "\n下面是当前选中文档中的图片。\n"
+            f"图片引用 ID：{image_id}\n"
+            f"来源文档：{document_name}\n"
+            f"source_type: {source_type}\n"
+            f"caption: {caption}\n"
+            f"page: {page_text}\n"
+            "如果你在回答中需要引用这张图，请在相关段落后插入：\n"
+            f"[[image:{image_id}]]\n"
+            "不要输出本地文件路径，不要编造 image_id。\n"
+        )
+
+    def _inline_image_answer_instructions(self) -> str:
+        return (
+            "回答必须是 Markdown。\n"
+            "如果某段解释依赖某张图，请在该段后插入真实图片 ID，例如 [[image:012345abcdef012345abcdef012345abcdef012345abcdef012345abcdef0123]]。\n"
+            "每张图最多引用一次。\n"
+            "不要在答案末尾堆全部图片。\n"
+            "不要输出本地文件路径。\n"
+            "不要输出字面量 image_id；不要编造 image_id；只能使用上面提供的真实图片 ID。\n"
+            "如果图片和问题无关，可以不引用。"
+        )
 
     def _generate_multimodal_cache_key(
         self, query: str, multimodal_content: List[Dict[str, Any]], mode: str, **kwargs
@@ -330,6 +377,7 @@ class QueryMixin:
         # Clear previous image cache
         if hasattr(self, "_current_images_base64"):
             delattr(self, "_current_images_base64")
+        self._current_image_paths_for_vlm = []
 
         # 1. Get original retrieval prompt (without generating final answer)
         query_param = QueryParam(mode=mode, only_need_prompt=True, **kwargs)
@@ -545,6 +593,8 @@ class QueryMixin:
 
         # Initialize image cache
         self._current_images_base64 = []
+        self._current_image_paths_for_vlm = []
+        self._current_image_refs_for_vlm = []
 
         # Enhanced regex pattern for matching image paths
         # Matches only the path ending with image file extensions
@@ -565,7 +615,7 @@ class QueryMixin:
             # Validate path format (basic check)
             if not image_path or len(image_path) < 3:
                 self.logger.warning(f"Invalid image path format: {image_path}")
-                return match.group(0)  # Keep original
+                return "Image Reference: [invalid image omitted]"
 
             # Use utility function to validate image file
             self.logger.debug(f"Calling validate_image_file for: {image_path}")
@@ -574,7 +624,14 @@ class QueryMixin:
 
             if not is_valid:
                 self.logger.warning(f"Image validation failed for: {image_path}")
-                return match.group(0)  # Keep original if validation fails
+                return "Image Reference: [invalid image omitted]"
+
+            metadata = self._vlm_image_metadata_for_path(image_path)
+            if metadata is None or not str(metadata.get("image_id") or "").strip():
+                self.logger.warning(
+                    f"Skipping unregistered image path in VLM context: {image_path}"
+                )
+                return "Image Reference: [unregistered image omitted]"
 
             try:
                 # Encode image to base64 using utility function
@@ -584,20 +641,25 @@ class QueryMixin:
                     images_processed += 1
                     # Save base64 to instance variable for later use
                     self._current_images_base64.append(image_base64)
+                    self._current_image_paths_for_vlm.append(image_path)
+                    self._current_image_refs_for_vlm.append(metadata)
 
-                    # Keep original path info and add VLM marker
-                    result = f"Image Path: {image_path}\n[VLM_IMAGE_{images_processed}]"
+                    # Replace local paths with registry-backed image IDs.
+                    result = (
+                        f"Image Reference ID: {metadata['image_id']}\n"
+                        f"[VLM_IMAGE_{images_processed}]"
+                    )
                     self.logger.debug(
                         f"Successfully processed image {images_processed}: {image_path}"
                     )
                     return result
                 else:
                     self.logger.error(f"Failed to encode image: {image_path}")
-                    return match.group(0)  # Keep original if encoding failed
+                    return "Image Reference: [unavailable image omitted]"
 
             except Exception as e:
                 self.logger.error(f"Failed to process image {image_path}: {e}")
-                return match.group(0)  # Keep original
+                return "Image Reference: [unavailable image omitted]"
 
         # Execute replacement
         enhanced_prompt = re.sub(
@@ -620,13 +682,18 @@ class QueryMixin:
             List[Dict]: VLM message format
         """
         images_base64 = getattr(self, "_current_images_base64", [])
+        image_refs = getattr(self, "_current_image_refs_for_vlm", [])
 
         if not images_base64:
             # Pure text mode
             return [
                 {
                     "role": "user",
-                    "content": f"Context:\n{enhanced_prompt}\n\nUser Question: {user_query}",
+                    "content": (
+                        f"Context:\n{enhanced_prompt}\n\n"
+                        f"User Question: {user_query}\n\n"
+                        f"{self._inline_image_answer_instructions()}"
+                    ),
                 }
             ]
 
@@ -652,6 +719,17 @@ class QueryMixin:
 
                     # Insert corresponding image
                     if 0 <= image_num < len(images_base64):
+                        if image_num < len(image_refs) and isinstance(
+                            image_refs[image_num], dict
+                        ):
+                            content_parts.append(
+                                {
+                                    "type": "text",
+                                    "text": self._format_vlm_image_label(
+                                        image_refs[image_num]
+                                    ),
+                                }
+                            )
                         content_parts.append(
                             {
                                 "type": "image_url",
@@ -669,15 +747,29 @@ class QueryMixin:
         content_parts.append(
             {
                 "type": "text",
-                "text": f"\n\nUser Question: {user_query}\n\nPlease answer based on the context and images provided.",
+                "text": (
+                    f"\n\nUser Question: {user_query}\n\n"
+                    "Please answer based on the context and images provided.\n\n"
+                    f"{self._inline_image_answer_instructions()}"
+                ),
             }
         )
         base_system_prompt = "You are a helpful assistant that can analyze both text and image content to provide comprehensive answers."
 
         if system_prompt:
-            full_system_prompt = base_system_prompt + " " + system_prompt
+            full_system_prompt = (
+                base_system_prompt
+                + " "
+                + system_prompt
+                + "\n\n"
+                + self._inline_image_answer_instructions()
+            )
         else:
-            full_system_prompt = base_system_prompt
+            full_system_prompt = (
+                base_system_prompt
+                + "\n\n"
+                + self._inline_image_answer_instructions()
+            )
 
         return [
             {

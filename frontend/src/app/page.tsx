@@ -2,26 +2,53 @@
 
 import { useEffect, useState } from "react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ConversationHistoryPanel } from "@/components/conversation/ConversationHistoryPanel";
 import { DocumentList } from "@/components/document/DocumentList";
 import { UploadDropzone } from "@/components/document/UploadDropzone";
 import { AppShell } from "@/components/layout/AppShell";
-import { SourceList } from "@/components/sources/SourceList";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { useChat } from "@/hooks/useChat";
+import { useConversations } from "@/hooks/useConversations";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useUpload } from "@/hooks/useUpload";
-import type { ApiHealth } from "@/types/api";
+import type { ApiHealth, RAGStatusResponse } from "@/types/api";
+import type { AnswerLevel, ChatMode, Conversation } from "@/types/chat";
+import type { DocumentSummary } from "@/types/document";
 
 export default function Home() {
   const documents = useDocuments();
-  const chat = useChat();
+  const conversations = useConversations();
+  const chat = useChat({
+    appendMessage: conversations.appendMessage,
+    updateMessage: conversations.updateMessage,
+  });
   const upload = useUpload((document) => {
     void documents.refresh();
     documents.setSelectedId(document.id);
   });
   const [health, setHealth] = useState<ApiHealth | null>(null);
+  const [ragStatus, setRagStatus] = useState<RAGStatusResponse | null>(null);
   const [healthError, setHealthError] = useState("");
+  const [documentSelectionError, setDocumentSelectionError] = useState("");
+  const selectedDocumentIds = conversations.activeConversation?.documentIds || [];
+  const selectedConversationDocuments = selectedDocumentIds
+    .map((documentId) =>
+      documents.documents.find((document) => document.id === documentId),
+    )
+    .filter((document): document is DocumentSummary => Boolean(document));
+  const selectedDocumentNames = selectedDocumentIds.map((documentId, index) => {
+    const document = documents.documents.find((item) => item.id === documentId);
+    return (
+      document?.name ||
+      conversations.activeConversation?.documentNames[index] ||
+      documentId
+    );
+  });
+  const boundDocumentIssue = getBoundDocumentIssue(
+    conversations.activeConversation,
+    documents.documents,
+  );
 
   useEffect(() => {
     api
@@ -32,30 +59,115 @@ export default function Home() {
       });
   }, []);
 
-  return (
-    <AppShell>
-      <section className="runtime-strip">
-        <span className={health?.ok ? "runtime-dot ready" : "runtime-dot"} />
-        <span>
-          {health
-            ? `后端已连接 · MinerU ${health.mineru_backend}/${health.mineru_device}`
-            : healthError || "正在连接后端..."}
-        </span>
-        {health && !health.has_api_key ? (
-          <strong>未检测到 Qwen API key</strong>
-        ) : null}
-      </section>
+  useEffect(() => {
+    api
+      .ragStatus()
+      .then(setRagStatus)
+      .catch(() => setRagStatus(null));
+  }, []);
 
+  const runtimeStatus = (
+    <>
+      <span className={health?.ok ? "runtime-dot ready" : "runtime-dot"} />
+      <span className="runtime-text">
+        {health
+          ? `后端已连接 · MinerU ${health.mineru_backend}/${health.mineru_device}`
+          : healthError || "正在连接后端..."}
+      </span>
+      {health && !health.has_api_key ? (
+        <strong>未检测到 Qwen API key</strong>
+      ) : null}
+    </>
+  );
+
+  function createConversation() {
+    const defaultDocuments = selectedConversationDocuments.length
+      ? selectedConversationDocuments
+      : documents.selectedDocument?.status === "ready_for_chat"
+        ? [documents.selectedDocument]
+        : [];
+    setDocumentSelectionError("");
+    conversations.createConversation(defaultDocuments.slice(0, 3));
+  }
+
+  function selectConversation(conversationId: string) {
+    const conversation = conversations.conversations.find(
+      (item) => item.id === conversationId,
+    );
+    conversations.selectConversation(conversationId);
+
+    const firstAvailableDocumentId = conversation?.documentIds.find((documentId) =>
+      documents.documents.some((document) => document.id === documentId),
+    );
+    if (firstAvailableDocumentId) {
+      documents.setSelectedId(firstAvailableDocumentId);
+    }
+  }
+
+  async function ask(question: string, level: AnswerLevel, chatMode: ChatMode) {
+    const conversation = conversations.activeConversation;
+    if (!conversation || boundDocumentIssue) return false;
+
+    conversations.setConversationLevel(conversation.id, level);
+    conversations.setConversationChatMode(conversation.id, chatMode);
+    return chat.ask({
+      question,
+      conversationId: conversation.id,
+      documentIds: conversation.documentIds,
+      level,
+      chatMode,
+    });
+  }
+
+  function toggleConversationDocument(document: DocumentSummary, selected: boolean) {
+    const conversation = conversations.activeConversation;
+    setDocumentSelectionError("");
+    documents.setSelectedId(document.id);
+
+    if (!conversation) {
+      if (selected) {
+        conversations.createConversation([document]);
+      }
+      return;
+    }
+
+    const nextDocumentIds = selected
+      ? [...conversation.documentIds, document.id]
+      : conversation.documentIds.filter((documentId) => documentId !== document.id);
+    const uniqueDocumentIds = Array.from(new Set(nextDocumentIds));
+    if (uniqueDocumentIds.length > 3) {
+      setDocumentSelectionError("最多选择 3 个文档");
+      return;
+    }
+
+    const nextDocuments = uniqueDocumentIds
+      .map((documentId) =>
+        documents.documents.find((currentDocument) => currentDocument.id === documentId),
+      )
+      .filter((currentDocument): currentDocument is DocumentSummary =>
+        Boolean(currentDocument),
+      );
+    conversations.setConversationDocuments(conversation.id, nextDocuments);
+  }
+
+  return (
+    <AppShell status={runtimeStatus}>
       <div className="workspace-grid">
-        <aside className="left-rail">
+        <aside className="left-rail" aria-label="文档工作区">
           <UploadDropzone
             disabled={upload.isUploading}
             onUpload={(file) => void upload.upload(file)}
           />
           {upload.error ? <p className="error-text">{upload.error}</p> : null}
           {documents.error ? <p className="error-text">{documents.error}</p> : null}
+          {documents.processNotice ? (
+            <p className="warning-text">{documents.processNotice}</p>
+          ) : null}
+          {documentSelectionError ? (
+            <p className="error-text">{documentSelectionError}</p>
+          ) : null}
 
-          <section className="panel">
+          <section className="panel documents-panel">
             <div className="panel-heading">
               <div>
                 <p className="section-label">Documents</p>
@@ -65,12 +177,16 @@ export default function Home() {
                 刷新
               </Button>
             </div>
-            <DocumentList
-              documents={documents.documents}
-              selectedId={documents.selectedId}
-              isLoading={documents.isLoading}
-              onSelect={documents.setSelectedId}
-            />
+            <div className="documents-scroll">
+              <DocumentList
+                documents={documents.documents}
+                focusedId={documents.selectedId}
+                selectedIds={selectedDocumentIds}
+                isLoading={documents.isLoading}
+                onFocus={documents.setSelectedId}
+                onToggle={toggleConversationDocument}
+              />
+            </div>
           </section>
 
           <section className="panel actions-panel">
@@ -88,26 +204,90 @@ export default function Home() {
           </section>
         </aside>
 
-        <section className="main-column">
+        <section className="main-column" aria-label="问答工作区">
           <ChatPanel
-            messages={chat.messages}
-            selectedDocumentId={documents.selectedId}
+            conversation={conversations.activeConversation}
+            selectedDocumentIds={selectedDocumentIds}
+            selectedDocumentNames={selectedDocumentNames}
+            boundDocumentIssue={boundDocumentIssue}
             isAsking={chat.isAsking}
-            onAsk={chat.ask}
+            statusMessage={chat.statusMessage}
+            isProcessing={documents.isProcessing}
+            isWarmingUp={selectedDocumentIds.includes(documents.warmingDocumentId)}
+            warmupError={documents.warmupError}
+            ragRetrievalStatus={ragStatus?.retrieval}
+            onAsk={ask}
+            onClearHistory={() => {
+              if (conversations.activeConversation) {
+                conversations.clearConversationMessages(conversations.activeConversation.id);
+              }
+            }}
+            onLevelChange={(level) => {
+              if (conversations.activeConversation) {
+                conversations.setConversationLevel(
+                  conversations.activeConversation.id,
+                  level,
+                );
+              }
+            }}
+            onChatModeChange={(chatMode) => {
+              if (conversations.activeConversation) {
+                conversations.setConversationChatMode(
+                  conversations.activeConversation.id,
+                  chatMode,
+                );
+              }
+            }}
           />
           {chat.error ? <p className="error-text">{chat.error}</p> : null}
         </section>
 
-        <aside className="right-rail panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-label">Sources</p>
-              <h2>引用片段</h2>
-            </div>
-          </div>
-          <SourceList sources={documents.sources} />
+        <aside className="right-rail panel conversation-panel" aria-label="对话记录">
+          <ConversationHistoryPanel
+            conversations={conversations.conversations}
+            activeConversationId={conversations.activeConversationId}
+            onCreate={createConversation}
+            onSelect={selectConversation}
+            onDelete={conversations.deleteConversation}
+            onClearAll={conversations.clearConversations}
+          />
         </aside>
       </div>
     </AppShell>
   );
+}
+
+function getBoundDocumentIssue(
+  conversation: Conversation | null,
+  documents: DocumentSummary[],
+) {
+  if (!conversation || conversation.documentIds.length === 0) return "";
+  if (conversation.documentIds.length > 3) return "最多选择 3 个文档";
+
+  const missingDocuments: string[] = [];
+  const notReadyDocuments: string[] = [];
+
+  conversation.documentIds.forEach((documentId, index) => {
+    const document = documents.find((item) => item.id === documentId);
+    if (!document) {
+      missingDocuments.push(conversation.documentNames[index] || documentId);
+      return;
+    }
+    if (document.status !== "ready_for_chat") {
+      notReadyDocuments.push(document.name);
+    }
+  });
+
+  if (missingDocuments.length) {
+    return `当前对话绑定的文档不存在：${formatDocumentNames(missingDocuments)}`;
+  }
+  if (notReadyDocuments.length) {
+    return `当前对话绑定的文档未就绪：${formatDocumentNames(notReadyDocuments)}`;
+  }
+  return "";
+}
+
+function formatDocumentNames(names: string[]) {
+  const visibleNames = names.slice(0, 2).join("、");
+  return names.length > 2 ? `${visibleNames} 等 ${names.length} 个` : visibleNames;
 }
