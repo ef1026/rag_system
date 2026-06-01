@@ -240,7 +240,12 @@ function normalizeStatus(value: unknown): ChatMessageStatus | undefined {
 }
 
 function normalizeLevel(value: unknown): AnswerLevel | undefined {
-  if (value === "beginner" || value === "undergraduate" || value === "expert") {
+  if (
+    value === "beginner" ||
+    value === "undergraduate" ||
+    value === "expert" ||
+    value === "custom"
+  ) {
     return value;
   }
   return undefined;

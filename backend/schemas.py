@@ -1,0 +1,284 @@
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from backend.constants import DocumentState
+
+class DocumentSummary(BaseModel):
+    id: str
+    name: str
+    size: int
+    status: DocumentState
+    readiness_warnings: list[str] = Field(default_factory=list)
+
+
+class SourceItem(BaseModel):
+    id: str
+    type: str
+    page: int | None = None
+    text: str
+
+
+class UploadResponse(BaseModel):
+    document: DocumentSummary
+
+
+class ProcessResponse(BaseModel):
+    document: DocumentSummary
+    message: str
+    sources: list[SourceItem]
+    readiness_warnings: list[str] = Field(default_factory=list)
+    text_indexed: bool = False
+    multimodal_enabled: bool = False
+    multimodal_status: str = "disabled"
+    image_status: str = "disabled"
+    table_status: str = "disabled"
+    equation_status: str = "disabled"
+    formula_status: str = "disabled"
+    skipped_multimodal_items_count: int = 0
+    skipped_by_reason: dict[str, int] = Field(default_factory=dict)
+    multimodal_warnings_count: int = 0
+    warnings_summary: list[str] = Field(default_factory=list)
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(min_length=1)
+    document_id: str | None = None
+    document_ids: list[str] | None = None
+    level: str = "undergraduate"
+    mode: str = "hybrid"
+    vlm_enhanced: bool | Literal["auto"] = "auto"
+
+
+class ChatDocumentUsed(BaseModel):
+    document_id: str
+    name: str
+    status: DocumentState
+
+
+class ChatPartialFailure(BaseModel):
+    document_id: str
+    name: str | None = None
+    error: str
+
+
+class ImageAssetPublic(BaseModel):
+    image_id: str
+    document_id: str
+    document_name: str
+    url: str
+    filename: str | None = Field(default=None, exclude=True)
+    caption: str | None = None
+    page: int | None = None
+    bbox: Any | None = None
+    source_type: str | None = None
+    relevance_reason: str | None = None
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[SourceItem]
+    related_images: list[ImageAssetPublic] = Field(default_factory=list)
+    inline_image_refs: list[str] = Field(default_factory=list)
+    documents_used: list[ChatDocumentUsed] = Field(default_factory=list)
+    partial_failures: list[ChatPartialFailure] = Field(default_factory=list)
+
+
+class CacheResponse(BaseModel):
+    ok: bool
+
+
+class WarmupResponse(BaseModel):
+    ok: bool
+    document: DocumentSummary
+    storage_dir: str
+    warmup_seconds: float
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+    has_api_key: bool
+    mineru_backend: str
+    mineru_device: str
+
+
+class RAGRetrievalStatus(BaseModel):
+    default_mode: str
+    rerank_requested: bool
+    rerank_enabled: bool
+    rerank_model: str | None
+    rerank_provider: str | None
+    rerank_model_loaded: bool
+    rerank_last_error: str | None = None
+    reason: str | None = None
+    rerank_top_n: int | None = None
+
+
+class RAGMultimodalStatus(BaseModel):
+    enabled: bool
+    image_processing: bool
+    table_processing: bool
+    equation_processing: bool
+    formula_processing: bool
+    vlm_model: str | None = None
+
+
+class RAGEmbeddingStatus(BaseModel):
+    model: str
+
+
+class RAGStatusResponse(BaseModel):
+    parser: str
+    parser_output_dir: str
+    retrieval: RAGRetrievalStatus
+    multimodal: RAGMultimodalStatus
+    embedding: RAGEmbeddingStatus
+    embedding_model: str
+    vector_store: str
+    graph_store: str
+    retrieval_mode: str
+    rerank_requested: bool
+    rerank_enabled: bool
+    rerank_model: str | None
+    rerank_binding: str | None
+    multimodal_enabled: bool
+    citation_status: str
+    sources_status: str
+
+
+class UserProfile(BaseModel):
+    id: str
+    display_name: str
+    role: str | None = None
+    education_level: str | None = None
+    major: str | None = None
+    learning_goals: list[str] = Field(default_factory=list)
+    preferred_language: str | None = None
+    answer_style: str | None = None
+    math_level: str | None = None
+    coding_level: str | None = None
+    default_depth: str | None = None
+    citation_preference: str | None = None
+    agents_md: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class UserProfilePut(BaseModel):
+    display_name: str = Field(min_length=1)
+    role: str | None = None
+    education_level: str | None = None
+    major: str | None = None
+    learning_goals: list[str] = Field(default_factory=list)
+    preferred_language: str | None = None
+    answer_style: str | None = None
+    math_level: str | None = None
+    coding_level: str | None = None
+    default_depth: str | None = None
+    citation_preference: str | None = None
+    agents_md: str | None = None
+
+
+class UserProfilePatch(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1)
+    role: str | None = None
+    education_level: str | None = None
+    major: str | None = None
+    learning_goals: list[str] | None = None
+    preferred_language: str | None = None
+    answer_style: str | None = None
+    math_level: str | None = None
+    coding_level: str | None = None
+    default_depth: str | None = None
+    citation_preference: str | None = None
+    agents_md: str | None = None
+
+
+class ProfilePromptContextResponse(BaseModel):
+    profile_id: str
+    prompt_context: str
+    selected_level: str
+    effective_agents_md: str
+    agents_md_editable: bool
+    builtin_agents_md: dict[str, str] = Field(default_factory=dict)
+
+
+class Folder(BaseModel):
+    id: str
+    profile_id: str
+    parent_id: str | None = None
+    name: str
+    sort_order: int = 0
+    created_at: str
+    updated_at: str
+
+
+class FolderCreate(BaseModel):
+    name: str = Field(min_length=1)
+    parent_id: str | None = None
+    sort_order: int = 0
+
+
+class FolderPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1)
+    parent_id: str | None = None
+    sort_order: int | None = None
+
+
+class ManagedFile(BaseModel):
+    id: str
+    profile_id: str
+    document_id: str
+    original_filename: str | None = None
+    display_name: str
+    folder_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    course: str | None = None
+    description: str | None = None
+    notes: str | None = None
+    pinned: bool = False
+    archived: bool = False
+    status: str | None = None
+    source_type: str = "existing_document"
+    created_at: str
+    updated_at: str
+
+
+class ManagedFileRegister(BaseModel):
+    document_id: str = Field(min_length=1)
+    original_filename: str | None = None
+    display_name: str | None = None
+    folder_id: str | None = None
+    tags: list[str] | None = None
+    course: str | None = None
+    description: str | None = None
+    notes: str | None = None
+
+
+class ManagedFilePatch(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1)
+    folder_id: str | None = None
+    tags: list[str] | None = None
+    course: str | None = None
+    description: str | None = None
+    notes: str | None = None
+    pinned: bool | None = None
+    archived: bool | None = None
+
+
+class RegisterManagedFileResponse(BaseModel):
+    file: ManagedFile
+    created: bool
+
+
+class SyncExistingDocumentsResponse(BaseModel):
+    created_count: int
+    existing_count: int
+    files: list[ManagedFile]
+
+
+class TagSummary(BaseModel):
+    name: str
+    count: int

@@ -28,6 +28,10 @@ type ChatPanelProps = {
   isWarmingUp?: boolean;
   warmupError?: string;
   ragRetrievalStatus?: RAGRetrievalStatus | null;
+  customAgentsMd: string;
+  isSavingCustomAgents?: boolean;
+  customAgentsError?: string;
+  customAgentsNotice?: string;
   onAsk: (
     question: string,
     level: AnswerLevel,
@@ -36,12 +40,15 @@ type ChatPanelProps = {
   onClearHistory: () => void;
   onLevelChange: (level: AnswerLevel) => void;
   onChatModeChange: (chatMode: ChatMode) => void;
+  onCustomAgentsChange: (value: string) => void;
+  onSaveCustomAgents: () => Promise<void>;
 };
 
 const levels: { value: AnswerLevel; label: string }[] = [
   { value: "beginner", label: "入门" },
   { value: "undergraduate", label: "本科" },
   { value: "expert", label: "专家" },
+  { value: "custom", label: "自定义" },
 ];
 
 const retrievalModes: {
@@ -74,14 +81,22 @@ export function ChatPanel({
   isWarmingUp,
   warmupError,
   ragRetrievalStatus,
+  customAgentsMd,
+  isSavingCustomAgents,
+  customAgentsError,
+  customAgentsNotice,
   onAsk,
   onClearHistory,
   onLevelChange,
   onChatModeChange,
+  onCustomAgentsChange,
+  onSaveCustomAgents,
 }: ChatPanelProps) {
   const [question, setQuestion] = useState("");
+  const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const customPromptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
   const messages = conversation?.messages ?? EMPTY_MESSAGES;
   const level = conversation?.level || "undergraduate";
@@ -103,6 +118,7 @@ export function ChatPanel({
   const selectedRetrievalMode = retrievalModes.find(
     (item) => item.value === chatMode,
   )!;
+  const selectedLevel = levels.find((item) => item.value === level) || levels[1];
 
   useEffect(() => {
     const element = messageListRef.current;
@@ -120,6 +136,27 @@ export function ChatPanel({
   useLayoutEffect(() => {
     resizeQuestionInput(textareaRef.current);
   }, [question]);
+
+  useEffect(() => {
+    if (!isCustomPromptOpen) return;
+    window.requestAnimationFrame(() => customPromptTextareaRef.current?.focus());
+
+    function closeOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsCustomPromptOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isCustomPromptOpen]);
+
+  function selectLevel(nextLevel: AnswerLevel) {
+    onLevelChange(nextLevel);
+    if (nextLevel === "custom") {
+      setIsCustomPromptOpen(true);
+    }
+  }
 
   async function submitQuestion() {
     const originalQuestion = question;
@@ -216,20 +253,37 @@ export function ChatPanel({
 
         <div className="chat-controls">
           <div className="answer-depth-control">
-            <span className="control-label">回答深度</span>
-            <div className="segmented-control" aria-label="回答深度">
+            <div className="answer-depth-heading">
+              <span className="control-label">回答深度</span>
+              <span className="depth-current">{selectedLevel.label}</span>
+            </div>
+            <div
+              className="segmented-control answer-depth-segmented"
+              aria-label="回答深度"
+            >
               {levels.map((item) => (
                 <button
                   type="button"
                   key={item.value}
                   className={item.value === level ? "active" : ""}
                   disabled={!conversation}
-                  onClick={() => onLevelChange(item.value)}
+                  onClick={() => selectLevel(item.value)}
                 >
                   {item.label}
                 </button>
               ))}
             </div>
+            {level === "custom" ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="custom-prompt-open-button"
+                disabled={!conversation}
+                onClick={() => setIsCustomPromptOpen(true)}
+              >
+                编辑 AGENTS.md
+              </Button>
+            ) : null}
           </div>
           <Button
             type="button"
@@ -279,6 +333,71 @@ export function ChatPanel({
         {askDisabledReason ? <p className="composer-note">{askDisabledReason}</p> : null}
         {statusMessage ? <p className="chat-status composer-note">{statusMessage}</p> : null}
       </form>
+
+      {isCustomPromptOpen ? (
+        <div
+          className="custom-agents-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsCustomPromptOpen(false);
+            }
+          }}
+        >
+          <section
+            className="custom-agents-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="custom-agents-title"
+          >
+            <div className="custom-agents-dialog-header">
+              <div>
+                <p className="section-label">Custom Prompt</p>
+                <h3 id="custom-agents-title">自定义 AGENTS.md</h3>
+              </div>
+              <button
+                type="button"
+                className="dialog-close-button"
+                aria-label="关闭自定义提示词窗口"
+                onClick={() => setIsCustomPromptOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="custom-agents-dialog-description">
+              这段提示词只在回答深度选择“自定义”时生效。用于约束回答难度、出题格式、讲解风格和评分要求。
+            </p>
+            <textarea
+              ref={customPromptTextareaRef}
+              className="custom-agents-dialog-textarea"
+              value={customAgentsMd}
+              onChange={(event) => onCustomAgentsChange(event.target.value)}
+            />
+            {customAgentsError ? (
+              <p className="error-text">{customAgentsError}</p>
+            ) : customAgentsNotice ? (
+              <p className="chat-status">{customAgentsNotice}</p>
+            ) : null}
+            <div className="custom-agents-dialog-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsCustomPromptOpen(false)}
+              >
+                关闭
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isSavingCustomAgents}
+                onClick={() => void onSaveCustomAgents()}
+              >
+                {isSavingCustomAgents ? "保存中..." : "保存并用于自定义"}
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

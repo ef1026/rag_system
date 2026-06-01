@@ -1,6 +1,6 @@
 import type { SourceItem } from "./document";
 
-export type AnswerLevel = "beginner" | "undergraduate" | "expert";
+export type AnswerLevel = "beginner" | "undergraduate" | "expert" | "custom";
 export type ChatMode = "multimodal" | "fast_text";
 export type ChatMessageStatus = "sent" | "failed";
 

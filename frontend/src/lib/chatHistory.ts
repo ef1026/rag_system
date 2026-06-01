@@ -97,7 +97,12 @@ function normalizeStatus(value: unknown): ChatMessageStatus | undefined {
 }
 
 function isAnswerLevel(value: unknown): value is AnswerLevel {
-  return value === "beginner" || value === "undergraduate" || value === "expert";
+  return (
+    value === "beginner" ||
+    value === "undergraduate" ||
+    value === "expert" ||
+    value === "custom"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

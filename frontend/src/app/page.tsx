@@ -12,6 +12,7 @@ import { useChat } from "@/hooks/useChat";
 import { useConversations } from "@/hooks/useConversations";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useUpload } from "@/hooks/useUpload";
+import { profileApi } from "@/features/profile/api";
 import type { ApiHealth, RAGStatusResponse } from "@/types/api";
 import type { AnswerLevel, ChatMode, Conversation } from "@/types/chat";
 import type { DocumentSummary } from "@/types/document";
@@ -29,6 +30,10 @@ export default function Home() {
   });
   const [health, setHealth] = useState<ApiHealth | null>(null);
   const [ragStatus, setRagStatus] = useState<RAGStatusResponse | null>(null);
+  const [customAgentsMd, setCustomAgentsMd] = useState("");
+  const [isSavingCustomAgents, setIsSavingCustomAgents] = useState(false);
+  const [customAgentsError, setCustomAgentsError] = useState("");
+  const [customAgentsNotice, setCustomAgentsNotice] = useState("");
   const [healthError, setHealthError] = useState("");
   const [documentSelectionError, setDocumentSelectionError] = useState("");
   const selectedDocumentIds = conversations.activeConversation?.documentIds || [];
@@ -64,6 +69,19 @@ export default function Home() {
       .ragStatus()
       .then(setRagStatus)
       .catch(() => setRagStatus(null));
+  }, []);
+
+  useEffect(() => {
+    profileApi
+      .get()
+      .then((profile) => {
+        setCustomAgentsMd(profile.agents_md || "");
+      })
+      .catch((error: unknown) => {
+        setCustomAgentsError(
+          error instanceof Error ? error.message : "自定义提示词加载失败",
+        );
+      });
   }, []);
 
   const runtimeStatus = (
@@ -117,6 +135,26 @@ export default function Home() {
       level,
       chatMode,
     });
+  }
+
+  async function saveCustomAgents() {
+    setIsSavingCustomAgents(true);
+    setCustomAgentsError("");
+    setCustomAgentsNotice("");
+    try {
+      const savedProfile = await profileApi.patch({
+        default_depth: "custom",
+        agents_md: customAgentsMd,
+      });
+      setCustomAgentsMd(savedProfile.agents_md || "");
+      setCustomAgentsNotice("自定义 AGENTS.md 已保存。");
+    } catch (nextError) {
+      setCustomAgentsError(
+        nextError instanceof Error ? nextError.message : "自定义提示词保存失败",
+      );
+    } finally {
+      setIsSavingCustomAgents(false);
+    }
   }
 
   function toggleConversationDocument(document: DocumentSummary, selected: boolean) {
@@ -216,6 +254,10 @@ export default function Home() {
             isWarmingUp={selectedDocumentIds.includes(documents.warmingDocumentId)}
             warmupError={documents.warmupError}
             ragRetrievalStatus={ragStatus?.retrieval}
+            customAgentsMd={customAgentsMd}
+            isSavingCustomAgents={isSavingCustomAgents}
+            customAgentsError={customAgentsError}
+            customAgentsNotice={customAgentsNotice}
             onAsk={ask}
             onClearHistory={() => {
               if (conversations.activeConversation) {
@@ -238,6 +280,12 @@ export default function Home() {
                 );
               }
             }}
+            onCustomAgentsChange={(value) => {
+              setCustomAgentsMd(value);
+              setCustomAgentsError("");
+              setCustomAgentsNotice("");
+            }}
+            onSaveCustomAgents={saveCustomAgents}
           />
           {chat.error ? <p className="error-text">{chat.error}</p> : null}
         </section>

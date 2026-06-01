@@ -21,7 +21,7 @@ export function getApiUrl(pathOrUrl: string) {
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(getApiUrl(path), {
     ...init,
     headers: {
