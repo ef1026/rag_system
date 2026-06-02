@@ -108,6 +108,8 @@ function normalizeConversation(value: unknown): Conversation | null {
     mode: value.mode,
     chatMode,
     level,
+    useProfile: typeof value.useProfile === "boolean" ? value.useProfile : true,
+    useMemory: typeof value.useMemory === "boolean" ? value.useMemory : false,
     messages: trimConversationMessages(messages),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { MemoryReviewPanel } from "@/features/memory/MemoryReviewPanel";
 import type { AnswerLevel } from "@/types/chat";
 import { profileApi } from "./api";
 import { ProfilePromptPreview } from "./ProfilePromptPreview";
@@ -228,6 +229,7 @@ export function ProfileEditor() {
         promptContext={promptContext}
         isLoading={isLoading || isSaving}
       />
+      <MemoryReviewPanel />
     </div>
   );
 }

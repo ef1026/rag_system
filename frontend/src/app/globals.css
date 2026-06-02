@@ -588,6 +588,124 @@ textarea:focus-visible {
   min-height: 36px;
 }
 
+.personalization-controls {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(240, 237, 228, 0.72));
+  padding: 10px;
+}
+
+.personalization-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.personalization-state {
+  border: 1px solid rgba(20, 107, 95, 0.22);
+  border-radius: 999px;
+  background: rgba(20, 107, 95, 0.08);
+  color: var(--accent-strong);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.personalization-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.toggle-pill {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.toggle-pill:hover:not(:disabled),
+.toggle-pill:focus-visible {
+  border-color: rgba(20, 107, 95, 0.35);
+}
+
+.toggle-pill.active {
+  border-color: rgba(20, 107, 95, 0.45);
+  background: rgba(20, 107, 95, 0.1);
+}
+
+.toggle-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.toggle-indicator {
+  position: relative;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #d8d2c7;
+}
+
+.toggle-indicator::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 1px 2px rgba(32, 28, 22, 0.2);
+  content: "";
+  transition: transform 0.16s ease;
+}
+
+.toggle-pill.active .toggle-indicator {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.toggle-pill.active .toggle-indicator::after {
+  transform: translateX(12px);
+}
+
+.toggle-pill strong,
+.toggle-pill small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toggle-pill strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.toggle-pill small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 .control-label,
 .mode-selector-heading {
   color: var(--muted);
@@ -1365,7 +1483,8 @@ select {
 }
 
 .profile-editor,
-.profile-preview {
+.profile-preview,
+.memory-review-panel {
   min-height: 0;
   overflow: auto;
 }
@@ -1424,6 +1543,95 @@ select {
   line-height: 1.65;
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.memory-review-panel {
+  grid-column: 1 / -1;
+}
+
+.memory-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.memory-group {
+  min-width: 0;
+}
+
+.memory-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.memory-group-heading h3 {
+  font-size: 14px;
+}
+
+.memory-group-heading span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.memory-list {
+  display: grid;
+  gap: 8px;
+}
+
+.memory-item {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.memory-item-main p,
+.memory-evidence {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.memory-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.memory-meta div {
+  min-width: 0;
+}
+
+.memory-meta dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.memory-meta dd {
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .library-page {
@@ -1706,7 +1914,8 @@ select {
   }
 
   .library-filters,
-  .profile-form-grid {
+  .profile-form-grid,
+  .memory-groups {
     grid-template-columns: 1fr;
   }
 

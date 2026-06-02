@@ -41,6 +41,8 @@ export type Conversation = {
   mode: string;
   chatMode: ChatMode;
   level: AnswerLevel;
+  useProfile: boolean;
+  useMemory: boolean;
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;

@@ -8,6 +8,7 @@ import {
   trimConversationMessages,
   trimConversations,
 } from "@/lib/conversationStorage";
+import { conversationsApi } from "@/features/conversations/api";
 import type { AnswerLevel, ChatMessage, ChatMode, Conversation } from "@/types/chat";
 import type { DocumentSummary } from "@/types/document";
 
@@ -25,6 +26,11 @@ export function useConversations() {
     setConversations(loadedConversations);
     setActiveConversationId(loadedConversations[0]?.id || "");
     setHasLoaded(true);
+    if (loadedConversations.length) {
+      void conversationsApi.importConversations(loadedConversations).catch(
+        () => undefined,
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -49,6 +55,8 @@ export function useConversations() {
       mode: DEFAULT_RAG_MODE,
       chatMode: DEFAULT_CHAT_MODE,
       level: DEFAULT_LEVEL,
+      useProfile: true,
+      useMemory: false,
       messages: [],
       createdAt: now,
       updatedAt: now,
@@ -56,6 +64,7 @@ export function useConversations() {
 
     setConversations((current) => trimConversations([nextConversation, ...current]));
     setActiveConversationId(nextConversation.id);
+    void conversationsApi.create(nextConversation).catch(() => undefined);
     return nextConversation.id;
   }, []);
 
@@ -64,6 +73,7 @@ export function useConversations() {
   }, []);
 
   const deleteConversation = useCallback((conversationId: string) => {
+    void conversationsApi.remove(conversationId).catch(() => undefined);
     setConversations((current) => {
       const nextConversations = current.filter(
         (conversation) => conversation.id !== conversationId,
@@ -77,9 +87,12 @@ export function useConversations() {
   }, []);
 
   const clearConversations = useCallback(() => {
+    conversations.forEach((conversation) => {
+      void conversationsApi.remove(conversation.id).catch(() => undefined);
+    });
     setConversations([]);
     setActiveConversationId("");
-  }, []);
+  }, [conversations]);
 
   const updateConversation = useCallback(
     (
@@ -101,6 +114,11 @@ export function useConversations() {
     (conversationId: string, document: DocumentSummary) => {
       updateConversation(conversationId, (conversation) => {
         if (conversation.documentIds.includes(document.id)) return conversation;
+        void conversationsApi
+          .patch(conversationId, {
+            document_ids: [...conversation.documentIds, document.id],
+          })
+          .catch(() => undefined);
 
         return {
           ...conversation,
@@ -115,6 +133,11 @@ export function useConversations() {
 
   const setConversationDocuments = useCallback(
     (conversationId: string, documents: DocumentSummary[]) => {
+      void conversationsApi
+        .patch(conversationId, {
+          document_ids: documents.map((document) => document.id),
+        })
+        .catch(() => undefined);
       updateConversation(conversationId, (conversation) => ({
         ...conversation,
         documentIds: documents.map((document) => document.id),
@@ -166,6 +189,7 @@ export function useConversations() {
 
   const clearConversationMessages = useCallback(
     (conversationId: string) => {
+      void conversationsApi.clearMessages(conversationId).catch(() => undefined);
       updateConversation(conversationId, (conversation) => ({
         ...conversation,
         messages: [],
@@ -177,6 +201,7 @@ export function useConversations() {
 
   const setConversationLevel = useCallback(
     (conversationId: string, level: AnswerLevel) => {
+      void conversationsApi.patch(conversationId, { level }).catch(() => undefined);
       updateConversation(conversationId, (conversation) => ({
         ...conversation,
         level,
@@ -188,9 +213,34 @@ export function useConversations() {
 
   const setConversationChatMode = useCallback(
     (conversationId: string, chatMode: ChatMode) => {
+      void conversationsApi
+        .patch(conversationId, { chat_mode: chatMode })
+        .catch(() => undefined);
       updateConversation(conversationId, (conversation) => ({
         ...conversation,
         chatMode,
+        updatedAt: new Date().toISOString(),
+      }));
+    },
+    [updateConversation],
+  );
+
+  const setConversationUseProfile = useCallback(
+    (conversationId: string, useProfile: boolean) => {
+      updateConversation(conversationId, (conversation) => ({
+        ...conversation,
+        useProfile,
+        updatedAt: new Date().toISOString(),
+      }));
+    },
+    [updateConversation],
+  );
+
+  const setConversationUseMemory = useCallback(
+    (conversationId: string, useMemory: boolean) => {
+      updateConversation(conversationId, (conversation) => ({
+        ...conversation,
+        useMemory,
         updatedAt: new Date().toISOString(),
       }));
     },
@@ -212,5 +262,7 @@ export function useConversations() {
     clearConversationMessages,
     setConversationLevel,
     setConversationChatMode,
+    setConversationUseProfile,
+    setConversationUseMemory,
   };
 }

@@ -37,6 +37,9 @@ export type ChatRequest = {
   level: AnswerLevel;
   mode: string;
   vlm_enhanced?: boolean | "auto";
+  conversation_id?: string;
+  use_profile?: boolean;
+  use_memory?: boolean;
 };
 
 export type ChatDocumentUsed = {
@@ -70,6 +73,9 @@ export type ChatResponse = {
   inline_image_refs?: string[];
   documents_used?: ChatDocumentUsed[];
   partial_failures?: ChatPartialFailure[];
+  conversation_id?: string | null;
+  user_message_id?: string | null;
+  assistant_message_id?: string | null;
 };
 
 export type WarmupResponse = {

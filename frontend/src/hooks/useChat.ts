@@ -21,6 +21,8 @@ type AskOptions = {
   documentIds: string[];
   level: AnswerLevel;
   chatMode: ChatMode;
+  useProfile: boolean;
+  useMemory: boolean;
 };
 
 function statusForElapsed(seconds: number, chatMode: ChatMode) {
@@ -74,6 +76,8 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
     documentIds,
     level,
     chatMode,
+    useProfile,
+    useMemory,
   }: AskOptions) {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) return false;
@@ -122,6 +126,9 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
         level,
         mode,
         vlm_enhanced: vlmEnhanced,
+        conversation_id: conversationId,
+        use_profile: useProfile,
+        use_memory: useMemory,
       };
       console.debug("chat payload", payload);
       const response = await api.chat(payload);
@@ -138,7 +145,7 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
       const relatedImages = mapRelatedImages(response.related_images);
       const inlineImageRefs = response.inline_image_refs?.filter(Boolean);
       appendMessage(conversationId, {
-        id: crypto.randomUUID(),
+        id: response.assistant_message_id || crypto.randomUUID(),
         role: "assistant",
         content: response.answer,
         createdAt: new Date().toISOString(),

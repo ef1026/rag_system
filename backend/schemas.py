@@ -50,6 +50,9 @@ class ChatRequest(BaseModel):
     level: str = "undergraduate"
     mode: str = "hybrid"
     vlm_enhanced: bool | Literal["auto"] = "auto"
+    conversation_id: str | None = None
+    use_profile: bool = True
+    use_memory: bool = False
 
 
 class ChatDocumentUsed(BaseModel):
@@ -84,6 +87,9 @@ class ChatResponse(BaseModel):
     inline_image_refs: list[str] = Field(default_factory=list)
     documents_used: list[ChatDocumentUsed] = Field(default_factory=list)
     partial_failures: list[ChatPartialFailure] = Field(default_factory=list)
+    conversation_id: str | None = None
+    user_message_id: str | None = None
+    assistant_message_id: str | None = None
 
 
 class CacheResponse(BaseModel):
@@ -282,3 +288,127 @@ class SyncExistingDocumentsResponse(BaseModel):
 class TagSummary(BaseModel):
     name: str
     count: int
+
+
+class Conversation(BaseModel):
+    id: str
+    profile_id: str
+    title: str
+    document_ids: list[str] = Field(default_factory=list)
+    level: str = "undergraduate"
+    mode: str = "hybrid"
+    chat_mode: str = "multimodal"
+    file_context: dict[str, Any] = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+
+
+class ConversationCreate(BaseModel):
+    id: str | None = None
+    title: str | None = None
+    document_ids: list[str] = Field(default_factory=list)
+    level: str = "undergraduate"
+    mode: str = "hybrid"
+    chat_mode: str = "multimodal"
+    file_context: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConversationPatch(BaseModel):
+    title: str | None = None
+    document_ids: list[str] | None = None
+    level: str | None = None
+    mode: str | None = None
+    chat_mode: str | None = None
+    file_context: dict[str, Any] | None = None
+
+
+class ConversationMessage(BaseModel):
+    id: str
+    conversation_id: str
+    role: Literal["user", "assistant"]
+    content: str
+    status: str = "sent"
+    document_ids: list[str] = Field(default_factory=list)
+    level: str | None = None
+    mode: str | None = None
+    chat_mode: str | None = None
+    sources: list[SourceItem] = Field(default_factory=list)
+    related_images: list[ImageAssetPublic] = Field(default_factory=list)
+    inline_image_refs: list[str] = Field(default_factory=list)
+    error: str | None = None
+    created_at: str
+
+
+class ConversationMessageImport(BaseModel):
+    id: str | None = None
+    role: Literal["user", "assistant"]
+    content: str
+    status: str = "sent"
+    document_ids: list[str] = Field(default_factory=list)
+    level: str | None = None
+    mode: str | None = None
+    chat_mode: str | None = None
+    sources: list[SourceItem] = Field(default_factory=list)
+    related_images: list[ImageAssetPublic] = Field(default_factory=list)
+    inline_image_refs: list[str] = Field(default_factory=list)
+    error: str | None = None
+    created_at: str | None = None
+
+
+class ConversationImportItem(BaseModel):
+    id: str
+    title: str
+    document_ids: list[str] = Field(default_factory=list)
+    level: str = "undergraduate"
+    mode: str = "hybrid"
+    chat_mode: str = "multimodal"
+    file_context: dict[str, Any] = Field(default_factory=dict)
+    messages: list[ConversationMessageImport] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class ConversationImportRequest(BaseModel):
+    conversations: list[ConversationImportItem] = Field(default_factory=list)
+
+
+class ConversationImportResponse(BaseModel):
+    imported_count: int
+    message_count: int
+    conversations: list[Conversation] = Field(default_factory=list)
+
+
+class UserMemory(BaseModel):
+    id: str
+    profile_id: str
+    memory_type: str
+    key: str | None = None
+    value: str
+    confidence: float = 0.5
+    source_conversation_id: str | None = None
+    evidence: str | None = None
+    status: str = "candidate"
+    sensitivity: str = "normal"
+    last_seen_at: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class UserMemoryPatch(BaseModel):
+    memory_type: str | None = None
+    key: str | None = None
+    value: str | None = None
+    confidence: float | None = None
+    evidence: str | None = None
+    status: str | None = None
+    sensitivity: str | None = None
+
+
+class MemoryExtractRequest(BaseModel):
+    conversation_id: str | None = None
+    limit: int = 10
+
+
+class MemoryExtractResponse(BaseModel):
+    created_count: int
+    memories: list[UserMemory] = Field(default_factory=list)

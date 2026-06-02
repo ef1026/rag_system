@@ -29,7 +29,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from backend.api import cache, chat, documents, file_manager, health, images, profile  # noqa: E402
+from backend.api import (  # noqa: E402
+    cache,
+    chat,
+    conversations,
+    documents,
+    file_manager,
+    health,
+    images,
+    memory,
+    profile,
+)
 
 app.include_router(health.router)
 app.include_router(documents.router)
@@ -38,3 +48,5 @@ app.include_router(chat.router)
 app.include_router(cache.router)
 app.include_router(profile.router)
 app.include_router(file_manager.router)
+app.include_router(conversations.router)
+app.include_router(memory.router)

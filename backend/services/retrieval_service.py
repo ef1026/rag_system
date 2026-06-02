@@ -29,6 +29,12 @@ from backend.schemas import (
     ChatPartialFailure,
     ChatRequest,
     ChatResponse,
+    MemoryExtractRequest,
+)
+from backend.services.conversation_service import (
+    append_message,
+    ensure_conversation_for_chat,
+    update_message_status,
 )
 from backend.services.document_service import (
     document_status,
@@ -43,6 +49,10 @@ from backend.services.image_service import (
     validate_answer_images,
 )
 from backend.services.profile_service import get_prompt_context
+from backend.services.memory_service import (
+    build_relevant_memory_context,
+    extract_memories,
+)
 from backend.services.synthesis_service import (
     answer_needs_fallback,
     direct_context_fallback,
@@ -98,6 +108,49 @@ def normalize_chat_document_ids(request: ChatRequest) -> list[str]:
         seen.add(document_id)
         document_ids.append(document_id)
     return document_ids
+
+
+def chat_mode_from_request(request: ChatRequest) -> str:
+    return "fast_text" if request.vlm_enhanced is False else "multimodal"
+
+
+def build_personalization_prompt(
+    request: ChatRequest,
+    level_key: str,
+    document_ids: list[str],
+) -> str:
+    parts: list[str] = []
+    if request.use_profile:
+        parts.append(get_prompt_context(level_key).prompt_context)
+    if request.use_memory:
+        memory_prompt = build_relevant_memory_context(
+            question=request.question,
+            document_ids=document_ids,
+        )
+        if memory_prompt:
+            parts.append(memory_prompt)
+    return "\n\n".join(part.strip() for part in parts if part.strip())
+
+
+def mark_user_message_failed(
+    message_id: str | None,
+    error: str,
+) -> None:
+    if not message_id:
+        return
+    try:
+        update_message_status(message_id, status="failed", error=error)
+    except Exception as exc:
+        logger.warning("Failed to mark conversation message failed: %s", exc)
+
+
+def refresh_memory_candidates(conversation_id: str | None) -> None:
+    if not conversation_id:
+        return
+    try:
+        extract_memories(MemoryExtractRequest(conversation_id=conversation_id, limit=5))
+    except Exception as exc:
+        logger.warning("Memory candidate extraction failed: %s", exc)
 
 
 def validate_chat_document_contexts(
@@ -419,31 +472,61 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
     timings: dict[str, float] = {}
     level_key = normalize_answer_level(request.level)
     level_prompt = ANSWER_LEVELS[level_key]
-    profile_prompt = get_prompt_context(level_key).prompt_context
-
     validate_started = time.perf_counter()
     document_ids = normalize_chat_document_ids(request)
+    chat_mode = chat_mode_from_request(request)
     prompt_template_used = prompt_template_name(len(document_ids))
     logger.info(
         "Chat request document_ids=%s legacy_document_id=%s",
         document_ids,
         request.document_id,
     )
-    logger.info(
-        "Chat direct routing original_question=%r level=%s document_ids=%s prompt_template=%s profile_prompt_chars=%s",
-        request.question,
-        level_key,
-        document_ids,
-        prompt_template_used,
-        len(profile_prompt),
-    )
+    conversation_id: str | None = None
+    user_message_id: str | None = None
+    assistant_message_id: str | None = None
     if not document_ids:
         raise HTTPException(status_code=400, detail="请先选择文档")
     if len(document_ids) > 3:
         raise HTTPException(status_code=400, detail="最多选择 3 个文档")
 
+    if request.conversation_id:
+        conversation = ensure_conversation_for_chat(
+            conversation_id=request.conversation_id,
+            question=request.question,
+            document_ids=document_ids,
+            level=level_key,
+            mode=request.mode,
+            chat_mode=chat_mode,
+        )
+        conversation_id = conversation.id
+        user_message = append_message(
+            conversation_id=conversation.id,
+            role="user",
+            content=request.question,
+            document_ids=document_ids,
+            level=level_key,
+            mode=request.mode,
+            chat_mode=chat_mode,
+            status="sent",
+        )
+        user_message_id = user_message.id
+
+    profile_prompt = build_personalization_prompt(request, level_key, document_ids)
+    logger.info(
+        "Chat direct routing original_question=%r level=%s document_ids=%s prompt_template=%s profile_prompt_chars=%s use_profile=%s use_memory=%s conversation_id=%s",
+        request.question,
+        level_key,
+        document_ids,
+        prompt_template_used,
+        len(profile_prompt),
+        request.use_profile,
+        request.use_memory,
+        conversation_id,
+    )
+
     contexts_or_response = validate_chat_document_contexts(document_ids)
     if isinstance(contexts_or_response, JSONResponse):
+        mark_user_message_failed(user_message_id, "knowledge_base_not_ready")
         return contexts_or_response
     contexts = contexts_or_response
     timings["validate_document"] = time.perf_counter() - validate_started
@@ -517,6 +600,25 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 timings.get("response_packaging", 0.0),
                 timings.get("total", 0.0),
             )
+            if conversation_id:
+                assistant_message = append_message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=response.answer,
+                    document_ids=document_ids,
+                    level=level_key,
+                    mode=request.mode,
+                    chat_mode=chat_mode,
+                    sources=response.sources,
+                    related_images=response.related_images,
+                    inline_image_refs=response.inline_image_refs,
+                    status="sent",
+                )
+                assistant_message_id = assistant_message.id
+                response.conversation_id = conversation_id
+                response.user_message_id = user_message_id
+                response.assistant_message_id = assistant_message_id
+                refresh_memory_candidates(conversation_id)
             return response
 
         document_answers: list[DocumentAnswer] = []
@@ -556,6 +658,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 )
 
         if not document_answers:
+            mark_user_message_failed(user_message_id, "knowledge_base_not_ready")
             return knowledge_base_not_ready_response(
                 message="所选文档暂时无法生成回答，请重新解析/更新知识库。",
                 document_status="partial_success",
@@ -571,6 +674,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
         )
         timings["synthesis"] = time.perf_counter() - synthesis_started
         if answer_needs_fallback(answer):
+            mark_user_message_failed(user_message_id, "empty_multi_document_answer")
             return knowledge_base_not_ready_response(
                 message="多文档综合回答为空，请稍后重试。",
                 document_status="partial_success",
@@ -632,8 +736,31 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             timings.get("response_packaging", 0.0),
             timings.get("total", 0.0),
         )
+        if conversation_id:
+            assistant_message = append_message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=response.answer,
+                document_ids=document_ids,
+                level=level_key,
+                mode=request.mode,
+                chat_mode=chat_mode,
+                sources=response.sources,
+                related_images=response.related_images,
+                inline_image_refs=response.inline_image_refs,
+                status="sent",
+            )
+            assistant_message_id = assistant_message.id
+            response.conversation_id = conversation_id
+            response.user_message_id = user_message_id
+            response.assistant_message_id = assistant_message_id
+            refresh_memory_candidates(conversation_id)
         return response
     except HTTPException as exc:
+        mark_user_message_failed(user_message_id, str(exc.detail))
         if exc.status_code == 409 and isinstance(exc.detail, dict):
             return JSONResponse(status_code=409, content=exc.detail)
+        raise
+    except Exception as exc:
+        mark_user_message_failed(user_message_id, str(exc))
         raise

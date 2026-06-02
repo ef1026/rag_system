@@ -134,6 +134,8 @@ export default function Home() {
       documentIds: conversation.documentIds,
       level,
       chatMode,
+      useProfile: conversation.useProfile,
+      useMemory: conversation.useMemory,
     });
   }
 
@@ -277,6 +279,22 @@ export default function Home() {
                 conversations.setConversationChatMode(
                   conversations.activeConversation.id,
                   chatMode,
+                );
+              }
+            }}
+            onUseProfileChange={(useProfile) => {
+              if (conversations.activeConversation) {
+                conversations.setConversationUseProfile(
+                  conversations.activeConversation.id,
+                  useProfile,
+                );
+              }
+            }}
+            onUseMemoryChange={(useMemory) => {
+              if (conversations.activeConversation) {
+                conversations.setConversationUseMemory(
+                  conversations.activeConversation.id,
+                  useMemory,
                 );
               }
             }}

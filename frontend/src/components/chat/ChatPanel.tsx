@@ -15,7 +15,13 @@ import {
 import { RelatedImages } from "@/components/chat/RelatedImages";
 import { Button } from "@/components/ui/Button";
 import type { RAGRetrievalStatus } from "@/types/api";
-import type { AnswerLevel, ChatMode, ChatMessage, Conversation } from "@/types/chat";
+import type {
+  AnswerLevel,
+  ChatMode,
+  ChatMessage,
+  Conversation,
+  RelatedImage,
+} from "@/types/chat";
 
 type ChatPanelProps = {
   conversation: Conversation | null;
@@ -40,6 +46,8 @@ type ChatPanelProps = {
   onClearHistory: () => void;
   onLevelChange: (level: AnswerLevel) => void;
   onChatModeChange: (chatMode: ChatMode) => void;
+  onUseProfileChange: (useProfile: boolean) => void;
+  onUseMemoryChange: (useMemory: boolean) => void;
   onCustomAgentsChange: (value: string) => void;
   onSaveCustomAgents: () => Promise<void>;
 };
@@ -89,6 +97,8 @@ export function ChatPanel({
   onClearHistory,
   onLevelChange,
   onChatModeChange,
+  onUseProfileChange,
+  onUseMemoryChange,
   onCustomAgentsChange,
   onSaveCustomAgents,
 }: ChatPanelProps) {
@@ -101,6 +111,8 @@ export function ChatPanel({
   const messages = conversation?.messages ?? EMPTY_MESSAGES;
   const level = conversation?.level || "undergraduate";
   const chatMode = conversation?.chatMode || "multimodal";
+  const useProfile = conversation?.useProfile ?? true;
+  const useMemory = conversation?.useMemory ?? false;
   const askDisabledReason = getAskDisabledReason({
     hasConversation: Boolean(conversation),
     selectedDocumentIds,
@@ -294,6 +306,48 @@ export function ChatPanel({
           >
             清空当前对话
           </Button>
+          <div className="personalization-controls">
+            <div className="personalization-heading">
+              <span className="control-label">个性化</span>
+              <span className="personalization-state">
+                {useProfile && useMemory
+                  ? "Profile + Memory"
+                  : useProfile
+                    ? "Profile"
+                    : useMemory
+                      ? "Memory"
+                      : "Off"}
+              </span>
+            </div>
+            <div className="personalization-toggle-grid">
+              <button
+                type="button"
+                className={`toggle-pill ${useProfile ? "active" : ""}`}
+                disabled={!conversation}
+                aria-pressed={useProfile}
+                onClick={() => onUseProfileChange(!useProfile)}
+              >
+                <span className="toggle-indicator" />
+                <span>
+                  <strong>Profile</strong>
+                  <small>显式偏好</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`toggle-pill ${useMemory ? "active" : ""}`}
+                disabled={!conversation}
+                aria-pressed={useMemory}
+                onClick={() => onUseMemoryChange(!useMemory)}
+              >
+                <span className="toggle-indicator" />
+                <span>
+                  <strong>Memory</strong>
+                  <small>审核记忆</small>
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -469,7 +523,8 @@ function resizeQuestionInput(textarea: HTMLTextAreaElement | null) {
 }
 
 function MessageBubble({ message }: { message: ChatMessage }) {
-  const fallbackImages = getFallbackRelatedImages(message);
+  const displayContent = getContentWithInlineImages(message);
+  const fallbackImages = getFallbackRelatedImages(message, displayContent);
 
   return (
     <article className={`message message-${message.role}`}>
@@ -477,7 +532,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       {message.role === "assistant" ? (
         <>
           <MarkdownAnswer
-            content={message.content}
+            content={displayContent}
             relatedImages={message.relatedImages}
           />
           <RelatedImages images={fallbackImages} />
@@ -495,10 +550,117 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function getFallbackRelatedImages(message: ChatMessage) {
+function getContentWithInlineImages(message: ChatMessage) {
+  if (message.role !== "assistant" || !message.relatedImages?.length) {
+    return message.content;
+  }
+  if (extractInlineImageIds(message.content).length > 0) {
+    return message.content;
+  }
+
+  const referencedImages = pickInlineImages(
+    message.relatedImages,
+    message.inlineImageRefs,
+  );
+  if (!referencedImages.length) {
+    return message.content;
+  }
+
+  return insertImageRefsIntoContent(
+    message.content,
+    referencedImages.map((image) => image.imageId),
+  );
+}
+
+function pickInlineImages(
+  relatedImages: RelatedImage[],
+  inlineImageRefs?: string[],
+) {
+  const imagesById = new Map(relatedImages.map((image) => [image.imageId, image]));
+  const explicitImages =
+    inlineImageRefs
+      ?.map((imageId) => imagesById.get(imageId))
+      .filter((image): image is RelatedImage => Boolean(image)) ?? [];
+
+  return balancedInlineImages(explicitImages.length ? explicitImages : relatedImages);
+}
+
+function balancedInlineImages(images: RelatedImage[], maxImages = 3) {
+  const selected: RelatedImage[] = [];
+  const seenIds = new Set<string>();
+  const seenDocuments = new Set<string>();
+
+  for (const image of images) {
+    if (seenIds.has(image.imageId) || seenDocuments.has(image.documentId)) continue;
+    selected.push(image);
+    seenIds.add(image.imageId);
+    seenDocuments.add(image.documentId);
+    if (selected.length >= maxImages) return selected;
+  }
+
+  for (const image of images) {
+    if (seenIds.has(image.imageId)) continue;
+    selected.push(image);
+    seenIds.add(image.imageId);
+    if (selected.length >= maxImages) break;
+  }
+
+  return selected;
+}
+
+function insertImageRefsIntoContent(content: string, imageIds: string[]) {
+  if (!imageIds.length || !content.trim()) return content;
+
+  const paragraphs = content.trimEnd().split("\n\n");
+  const anchorIndices = paragraphs
+    .map((paragraph, index) => ({ paragraph: paragraph.trim(), index }))
+    .filter(
+      ({ paragraph }) =>
+        paragraph &&
+        !paragraph.startsWith("```") &&
+        !paragraph.startsWith("|") &&
+        !paragraph.startsWith("[[image:"),
+    )
+    .map(({ index }) => index);
+
+  if (!anchorIndices.length) {
+    return `${content.trimEnd()}\n\n${imageIds
+      .map((imageId) => `[[image:${imageId}]]`)
+      .join("\n\n")}`;
+  }
+
+  const preferredPositions = [
+    anchorIndices[Math.min(1, anchorIndices.length - 1)],
+    anchorIndices[Math.floor(anchorIndices.length / 2)],
+    anchorIndices[anchorIndices.length - 1],
+  ];
+  const usedPositions = new Set<number>();
+  const insertions = new Map<number, string[]>();
+
+  imageIds.forEach((imageId, index) => {
+    let position = preferredPositions[index] ?? anchorIndices[anchorIndices.length - 1];
+    if (usedPositions.has(position)) {
+      position = anchorIndices.find((candidate) => !usedPositions.has(candidate)) ?? position;
+    }
+    usedPositions.add(position);
+    insertions.set(position, [
+      ...(insertions.get(position) ?? []),
+      `[[image:${imageId}]]`,
+    ]);
+  });
+
+  const output: string[] = [];
+  paragraphs.forEach((paragraph, index) => {
+    output.push(paragraph);
+    output.push(...(insertions.get(index) ?? []));
+  });
+  return output.join("\n\n");
+}
+
+function getFallbackRelatedImages(message: ChatMessage, content: string) {
   if (!message.relatedImages?.length) return undefined;
 
-  const inlineImageIds = new Set(extractInlineImageIds(message.content));
+  const inlineImageIds = new Set(extractInlineImageIds(content));
   if (inlineImageIds.size === 0) {
     return message.relatedImages;
   }

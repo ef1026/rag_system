@@ -63,6 +63,74 @@ CREATE INDEX IF NOT EXISTS idx_managed_files_profile_folder
 
 CREATE INDEX IF NOT EXISTS idx_managed_files_profile_document
     ON managed_files(profile_id, document_id);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    document_ids_json TEXT NOT NULL DEFAULT '[]',
+    level TEXT NOT NULL DEFAULT 'undergraduate',
+    mode TEXT NOT NULL DEFAULT 'hybrid',
+    chat_mode TEXT NOT NULL DEFAULT 'multimodal',
+    file_context_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'sent',
+    document_ids_json TEXT NOT NULL DEFAULT '[]',
+    level TEXT,
+    mode TEXT,
+    chat_mode TEXT,
+    sources_json TEXT NOT NULL DEFAULT '[]',
+    related_images_json TEXT NOT NULL DEFAULT '[]',
+    inline_image_refs_json TEXT NOT NULL DEFAULT '[]',
+    error TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_profile_updated
+    ON conversations(profile_id, updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_created
+    ON conversation_messages(conversation_id, created_at);
+
+CREATE TABLE IF NOT EXISTS user_memories (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    memory_type TEXT NOT NULL,
+    key TEXT,
+    value TEXT NOT NULL,
+    confidence REAL DEFAULT 0.5,
+    source_conversation_id TEXT,
+    evidence TEXT,
+    status TEXT DEFAULT 'candidate',
+    sensitivity TEXT DEFAULT 'normal',
+    last_seen_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_memories_profile_status
+    ON user_memories(profile_id, status);
+
+CREATE TABLE IF NOT EXISTS memory_events (
+    id TEXT PRIMARY KEY,
+    memory_id TEXT,
+    profile_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    source_conversation_id TEXT,
+    evidence TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_events_profile_created
+    ON memory_events(profile_id, created_at);
 """
 
 
