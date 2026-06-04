@@ -31,6 +31,7 @@ from backend.schemas import (
     ChatResponse,
     MemoryExtractRequest,
 )
+from backend.services.personalization_service import compile_personalization
 from backend.services.conversation_service import (
     append_message,
     ensure_conversation_for_chat,
@@ -48,11 +49,7 @@ from backend.services.image_service import (
     select_related_images,
     validate_answer_images,
 )
-from backend.services.profile_service import get_prompt_context
-from backend.services.memory_service import (
-    build_relevant_memory_context,
-    extract_memories,
-)
+from backend.services.memory_service import extract_memories
 from backend.services.synthesis_service import (
     answer_needs_fallback,
     direct_context_fallback,
@@ -112,24 +109,6 @@ def normalize_chat_document_ids(request: ChatRequest) -> list[str]:
 
 def chat_mode_from_request(request: ChatRequest) -> str:
     return "fast_text" if request.vlm_enhanced is False else "multimodal"
-
-
-def build_personalization_prompt(
-    request: ChatRequest,
-    level_key: str,
-    document_ids: list[str],
-) -> str:
-    parts: list[str] = []
-    if request.use_profile:
-        parts.append(get_prompt_context(level_key).prompt_context)
-    if request.use_memory:
-        memory_prompt = build_relevant_memory_context(
-            question=request.question,
-            document_ids=document_ids,
-        )
-        if memory_prompt:
-            parts.append(memory_prompt)
-    return "\n\n".join(part.strip() for part in parts if part.strip())
 
 
 def mark_user_message_failed(
@@ -221,6 +200,7 @@ async def query_single_document(
     level_key: str,
     level_prompt: str,
     profile_prompt: str,
+    retrieval_hints: list[str],
     for_synthesis: bool = False,
 ) -> DocumentAnswer:
     timings: dict[str, float] = {}
@@ -291,7 +271,12 @@ async def query_single_document(
 
         rewrite_started = time.perf_counter()
         user_question = request.question.strip()
-        query = build_chat_query(user_question, document_id, for_synthesis)
+        query = build_chat_query(
+            user_question,
+            document_id,
+            for_synthesis,
+            retrieval_hints,
+        )
         document_system_prompt = build_document_prompt(
             user_question,
             document_id,
@@ -504,6 +489,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             role="user",
             content=request.question,
             document_ids=document_ids,
+            message_id=request.client_user_message_id,
             level=level_key,
             mode=request.mode,
             chat_mode=chat_mode,
@@ -511,9 +497,18 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
         )
         user_message_id = user_message.id
 
-    profile_prompt = build_personalization_prompt(request, level_key, document_ids)
+    personalization = compile_personalization(
+        question=request.question,
+        document_ids=document_ids,
+        level=level_key,
+        conversation_id=conversation_id,
+        use_profile=request.use_profile,
+        use_memory=request.use_memory,
+    )
+    profile_prompt = personalization.generation_prompt
+    retrieval_hints = personalization.retrieval_hints
     logger.info(
-        "Chat direct routing original_question=%r level=%s document_ids=%s prompt_template=%s profile_prompt_chars=%s use_profile=%s use_memory=%s conversation_id=%s",
+        "Chat direct routing original_question=%r level=%s document_ids=%s prompt_template=%s profile_prompt_chars=%s use_profile=%s use_memory=%s used_memories=%s retrieval_hints=%s conversation_id=%s",
         request.question,
         level_key,
         document_ids,
@@ -521,6 +516,8 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
         len(profile_prompt),
         request.use_profile,
         request.use_memory,
+        [memory.id for memory in personalization.used_memories],
+        retrieval_hints,
         conversation_id,
     )
 
@@ -546,6 +543,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 level_key,
                 level_prompt,
                 profile_prompt,
+                retrieval_hints,
                 False,
             )
             package_started = time.perf_counter()
@@ -632,6 +630,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                     level_key,
                     level_prompt,
                     profile_prompt,
+                    retrieval_hints,
                     True,
                 )
                 document_answers.append(document_answer)

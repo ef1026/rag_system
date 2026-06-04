@@ -1,5 +1,5 @@
 import { request } from "@/lib/api";
-import type { MemoryExtractResponse, UserMemory } from "./types";
+import type { MemoryExtractResponse, UserMemory, UserMemoryPatch } from "./types";
 
 export const memoryApi = {
   list: (status?: string) =>
@@ -16,6 +16,11 @@ export const memoryApi = {
   accept: (memoryId: string) =>
     request<UserMemory>(`/api/memory/${encodeURIComponent(memoryId)}/accept`, {
       method: "POST",
+    }),
+  patch: (memoryId: string, payload: UserMemoryPatch) =>
+    request<UserMemory>(`/api/memory/${encodeURIComponent(memoryId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
     }),
   dismiss: (memoryId: string) =>
     request<UserMemory>(`/api/memory/${encodeURIComponent(memoryId)}/dismiss`, {

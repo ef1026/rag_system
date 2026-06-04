@@ -7,7 +7,7 @@ def build_memory_prompt_context(memories: list[UserMemory]) -> str:
     active_memories = [
         memory
         for memory in memories
-        if memory.status == "active" and memory.value.strip()
+        if memory.status == "active" and memory.value.strip() and memory.auto_apply
     ][:5]
     if not active_memories:
         return ""
@@ -17,13 +17,16 @@ def build_memory_prompt_context(memories: list[UserMemory]) -> str:
         key = f"{memory.memory_type}"
         if memory.key:
             key += f":{memory.key}"
-        lines.append(f"- {key}: {memory.value.strip()}")
+        scope = memory.scope_type
+        if memory.scope_id:
+            scope += f":{memory.scope_id}"
+        lines.append(f"- {key} ({scope}): {memory.value.strip()}")
 
     lines.extend(
         [
             "",
             "[Memory Rules]",
-            "- Use memory only to adjust language, depth, format, and learning continuity.",
+            "- Use memory only to adjust language, depth, format, retrieval focus, and learning continuity.",
             "- Do not use memory as factual evidence.",
             "- Ground factual claims only in retrieved document content.",
             "- If memory conflicts with this turn's question, follow this turn's question.",

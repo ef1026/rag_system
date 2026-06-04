@@ -283,6 +283,7 @@ def append_message(
     role: str,
     content: str,
     document_ids: list[str],
+    message_id: str | None = None,
     level: str | None = None,
     mode: str | None = None,
     chat_mode: str | None = None,
@@ -293,10 +294,10 @@ def append_message(
     error: str | None = None,
 ) -> ConversationMessage:
     conversation = read_conversation(conversation_id)
-    message_id = _new_id("msg")
+    normalized_message_id = _normalize_client_id(message_id) or _new_id("msg")
     now = _utc_now()
     values = _message_values(
-        message_id=message_id,
+        message_id=normalized_message_id,
         conversation_id=conversation.id,
         role=role,
         content=content,
@@ -313,7 +314,7 @@ def append_message(
     )
     _upsert_message_values(values)
     _touch_conversation(conversation.id, document_ids, level, mode, chat_mode, now)
-    return _read_required_message(message_id)
+    return _read_required_message(normalized_message_id)
 
 
 def update_message_status(

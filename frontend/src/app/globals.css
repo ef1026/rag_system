@@ -1290,6 +1290,51 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
+.message-feedback {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.message-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.message-feedback-actions button {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.message-feedback-actions button:hover:not(:disabled) {
+  border-color: rgba(20, 107, 95, 0.35);
+  color: var(--accent-strong);
+}
+
+.message-feedback-note,
+.message-feedback-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.message-feedback-note {
+  color: var(--accent-strong);
+}
+
+.message-feedback-error {
+  color: var(--danger);
+}
+
 .question-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1532,6 +1577,10 @@ select {
   line-height: 1.4;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .prompt-preview-text {
   min-height: 260px;
   margin: 0;
@@ -1543,6 +1592,42 @@ select {
   line-height: 1.65;
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.personalization-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.preview-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.preview-list h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.preview-list ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.preview-list .empty-state.compact {
+  padding: 8px;
+  font-size: 12px;
+}
+
+.muted-list {
+  color: var(--danger);
 }
 
 .memory-review-panel {
@@ -1599,6 +1684,34 @@ select {
   margin: 4px 0 0;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.memory-edit-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.memory-edit-form textarea {
+  min-height: 120px;
+}
+
+.memory-scope-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.2fr);
+  gap: 8px;
+}
+
+.memory-scope-row label {
+  display: grid;
+  gap: 5px;
+}
+
+.memory-scope-row span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .memory-meta {

@@ -6,9 +6,18 @@ import { memoryApi } from "./api";
 import type { UserMemory } from "./types";
 
 const statuses = ["candidate", "active", "dismissed"] as const;
+const scopeTypes = ["global", "course", "document", "conversation"] as const;
+
+type MemoryDraft = {
+  value: string;
+  scope_type: UserMemory["scope_type"];
+  scope_id: string;
+};
 
 export function MemoryReviewPanel() {
   const [memories, setMemories] = useState<UserMemory[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, MemoryDraft>>({});
+  const [editingId, setEditingId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +61,46 @@ export function MemoryReviewPanel() {
     } finally {
       setIsExtracting(false);
     }
+  }
+
+  function startEditing(memory: UserMemory) {
+    setEditingId(memory.id);
+    setDrafts((current) => ({
+      ...current,
+      [memory.id]: {
+        value: memory.value,
+        scope_type: memory.scope_type,
+        scope_id: memory.scope_id || "",
+      },
+    }));
+  }
+
+  function updateDraft(memoryId: string, update: Partial<MemoryDraft>) {
+    const defaultDraft: MemoryDraft = {
+      value: "",
+      scope_type: "global",
+      scope_id: "",
+    };
+    setDrafts((current) => ({
+      ...current,
+      [memoryId]: {
+        ...(current[memoryId] || defaultDraft),
+        ...update,
+      },
+    }));
+  }
+
+  async function saveDraft(memory: UserMemory) {
+    const draft = drafts[memory.id];
+    if (!draft) return;
+    await runAction(async () => {
+      await memoryApi.patch(memory.id, {
+        value: draft.value,
+        scope_type: draft.scope_type,
+        scope_id: draft.scope_type === "global" ? null : draft.scope_id || null,
+      });
+      setEditingId("");
+    });
   }
 
   async function runAction(action: () => Promise<unknown>) {
@@ -98,62 +147,19 @@ export function MemoryReviewPanel() {
             ) : (
               <div className="memory-list">
                 {group.memories.map((memory) => (
-                  <article className="memory-item" key={memory.id}>
-                    <div className="memory-item-main">
-                      <strong>{memory.key || memory.memory_type}</strong>
-                      <p>{memory.value}</p>
-                    </div>
-                    <dl className="memory-meta">
-                      <div>
-                        <dt>Type</dt>
-                        <dd>{memory.memory_type}</dd>
-                      </div>
-                      <div>
-                        <dt>Confidence</dt>
-                        <dd>{Math.round(memory.confidence * 100)}%</dd>
-                      </div>
-                      {memory.source_conversation_id ? (
-                        <div>
-                          <dt>Source</dt>
-                          <dd>{memory.source_conversation_id}</dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                    {memory.evidence ? (
-                      <p className="memory-evidence">{memory.evidence}</p>
-                    ) : null}
-                    <div className="memory-actions">
-                      {memory.status === "candidate" ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() =>
-                              void runAction(() => memoryApi.accept(memory.id))
-                            }
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() =>
-                              void runAction(() => memoryApi.dismiss(memory.id))
-                            }
-                          >
-                            Dismiss
-                          </Button>
-                        </>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => void runAction(() => memoryApi.remove(memory.id))}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </article>
+                  <MemoryItem
+                    key={memory.id}
+                    memory={memory}
+                    draft={drafts[memory.id]}
+                    isEditing={editingId === memory.id}
+                    onEdit={() => startEditing(memory)}
+                    onDraftChange={(update) => updateDraft(memory.id, update)}
+                    onSave={() => void saveDraft(memory)}
+                    onCancel={() => setEditingId("")}
+                    onAccept={() => void runAction(() => memoryApi.accept(memory.id))}
+                    onDismiss={() => void runAction(() => memoryApi.dismiss(memory.id))}
+                    onDelete={() => void runAction(() => memoryApi.remove(memory.id))}
+                  />
                 ))}
               </div>
             )}
@@ -162,6 +168,129 @@ export function MemoryReviewPanel() {
       </div>
     </section>
   );
+}
+
+function MemoryItem({
+  memory,
+  draft,
+  isEditing,
+  onEdit,
+  onDraftChange,
+  onSave,
+  onCancel,
+  onAccept,
+  onDismiss,
+  onDelete,
+}: {
+  memory: UserMemory;
+  draft?: MemoryDraft;
+  isEditing: boolean;
+  onEdit: () => void;
+  onDraftChange: (update: Partial<MemoryDraft>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onAccept: () => void;
+  onDismiss: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <article className="memory-item">
+      <div className="memory-item-main">
+        <strong>{memory.key || memory.memory_type}</strong>
+        {isEditing ? (
+          <div className="memory-edit-form">
+            <textarea
+              value={draft?.value ?? memory.value}
+              onChange={(event) => onDraftChange({ value: event.target.value })}
+            />
+            <div className="memory-scope-row">
+              <label>
+                <span>Scope</span>
+                <select
+                  value={draft?.scope_type ?? memory.scope_type}
+                  onChange={(event) =>
+                    onDraftChange({
+                      scope_type: event.target.value as UserMemory["scope_type"],
+                    })
+                  }
+                >
+                  {scopeTypes.map((scopeType) => (
+                    <option key={scopeType} value={scopeType}>
+                      {scopeType}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Scope id</span>
+                <input
+                  value={draft?.scope_id ?? memory.scope_id ?? ""}
+                  disabled={(draft?.scope_type ?? memory.scope_type) === "global"}
+                  onChange={(event) => onDraftChange({ scope_id: event.target.value })}
+                />
+              </label>
+            </div>
+          </div>
+        ) : (
+          <p>{memory.value}</p>
+        )}
+      </div>
+      <dl className="memory-meta">
+        <MetaItem label="Type" value={memory.memory_type} />
+        <MetaItem label="Confidence" value={`${Math.round(memory.confidence * 100)}%`} />
+        <MetaItem label="Scope" value={formatScope(memory)} />
+        <MetaItem label="Auto" value={memory.auto_apply ? "on" : "off"} />
+        {memory.source_conversation_id ? (
+          <MetaItem label="Source" value={memory.source_conversation_id} />
+        ) : null}
+        {memory.evidence_message_ids.length ? (
+          <MetaItem label="Evidence ids" value={memory.evidence_message_ids.join(", ")} />
+        ) : null}
+      </dl>
+      {memory.evidence ? <p className="memory-evidence">{memory.evidence}</p> : null}
+      <div className="memory-actions">
+        {isEditing ? (
+          <>
+            <Button type="button" variant="secondary" onClick={onSave}>
+              Save draft
+            </Button>
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          </>
+        ) : null}
+        {memory.status === "candidate" && !isEditing ? (
+          <>
+            <Button type="button" variant="secondary" onClick={onEdit}>
+              Edit
+            </Button>
+            <Button type="button" variant="secondary" onClick={onAccept}>
+              Accept
+            </Button>
+            <Button type="button" variant="ghost" onClick={onDismiss}>
+              Dismiss
+            </Button>
+          </>
+        ) : null}
+        <Button type="button" variant="ghost" onClick={onDelete}>
+          Delete
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function MetaItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd title={value}>{value}</dd>
+    </div>
+  );
+}
+
+function formatScope(memory: UserMemory) {
+  return memory.scope_id ? `${memory.scope_type}:${memory.scope_id}` : memory.scope_type;
 }
 
 function labelForStatus(status: (typeof statuses)[number]) {

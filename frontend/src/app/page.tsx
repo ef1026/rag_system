@@ -13,6 +13,7 @@ import { useConversations } from "@/hooks/useConversations";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useUpload } from "@/hooks/useUpload";
 import { profileApi } from "@/features/profile/api";
+import type { ProfileFeedbackRequest } from "@/features/profile/types";
 import type { ApiHealth, RAGStatusResponse } from "@/types/api";
 import type { AnswerLevel, ChatMode, Conversation } from "@/types/chat";
 import type { DocumentSummary } from "@/types/document";
@@ -157,6 +158,22 @@ export default function Home() {
     } finally {
       setIsSavingCustomAgents(false);
     }
+  }
+
+  async function sendMessageFeedback(
+    messageId: string,
+    feedback: Omit<ProfileFeedbackRequest, "conversation_id" | "message_id">,
+  ) {
+    const conversation = conversations.activeConversation;
+    if (!conversation) {
+      throw new Error("请先选择一个对话。");
+    }
+    const response = await profileApi.feedback({
+      conversation_id: conversation.id,
+      message_id: messageId,
+      ...feedback,
+    });
+    return response.created_memory_candidates.length;
   }
 
   function toggleConversationDocument(document: DocumentSummary, selected: boolean) {
@@ -304,6 +321,7 @@ export default function Home() {
               setCustomAgentsNotice("");
             }}
             onSaveCustomAgents={saveCustomAgents}
+            onMessageFeedback={sendMessageFeedback}
           />
           {chat.error ? <p className="error-text">{chat.error}</p> : null}
         </section>

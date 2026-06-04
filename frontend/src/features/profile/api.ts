@@ -1,6 +1,10 @@
 import { request } from "@/lib/api";
 import type { AnswerLevel } from "@/types/chat";
 import type {
+  PersonalizationPreviewRequest,
+  PersonalizationPreviewResponse,
+  ProfileFeedbackRequest,
+  ProfileFeedbackResponse,
   ProfilePromptContextResponse,
   UserProfile,
   UserProfileInput,
@@ -24,4 +28,14 @@ export const profileApi = {
         level ? `?level=${encodeURIComponent(level)}` : ""
       }`,
     ),
+  personalizationPreview: (payload: PersonalizationPreviewRequest) =>
+    request<PersonalizationPreviewResponse>("/api/profile/personalization-preview", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  feedback: (payload: ProfileFeedbackRequest) =>
+    request<ProfileFeedbackResponse>("/api/profile/feedback", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };

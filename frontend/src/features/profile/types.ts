@@ -1,3 +1,5 @@
+import type { UserMemory } from "@/features/memory/types";
+
 export type UserProfile = {
   id: string;
   display_name: string;
@@ -38,4 +40,33 @@ export type ProfilePromptContextResponse = {
   effective_agents_md: string;
   agents_md_editable: boolean;
   builtin_agents_md: Record<string, string | undefined>;
+  used_profile_fields: string[];
+  used_memories: UserMemory[];
+  retrieval_hints: string[];
+  warnings: string[];
+};
+
+export type PersonalizationPreviewRequest = {
+  question?: string;
+  document_ids?: string[];
+  level: string;
+  conversation_id?: string;
+  use_profile?: boolean;
+  use_memory?: boolean;
+};
+
+export type PersonalizationPreviewResponse = ProfilePromptContextResponse;
+
+export type ProfileFeedbackRequest = {
+  conversation_id: string;
+  message_id: string;
+  rating?: "helpful" | "not_helpful";
+  difficulty?: "too_easy" | "too_hard";
+  style_feedback?: "needs_examples" | "needs_derivation" | "more_concise";
+  note?: string;
+};
+
+export type ProfileFeedbackResponse = {
+  ok: boolean;
+  created_memory_candidates: UserMemory[];
 };

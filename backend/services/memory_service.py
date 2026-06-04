@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import re
 import uuid
+import json
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
 
+from backend.core.ids import safe_document_id
 from backend.prompts.memory_context import build_memory_prompt_context
 from backend.schemas import (
     MemoryExtractRequest,
@@ -29,7 +31,13 @@ MEMORY_COLUMNS = (
     "evidence",
     "status",
     "sensitivity",
+    "scope_type",
+    "scope_id",
+    "evidence_message_ids_json",
     "last_seen_at",
+    "last_confirmed_at",
+    "expires_at",
+    "auto_apply",
     "created_at",
     "updated_at",
 )
@@ -73,6 +81,12 @@ def patch_memory(memory_id: str, payload: UserMemoryPatch) -> UserMemory:
         "evidence",
         "status",
         "sensitivity",
+        "scope_type",
+        "scope_id",
+        "evidence_message_ids",
+        "last_confirmed_at",
+        "expires_at",
+        "auto_apply",
     ):
         if field in data:
             updates[field] = data[field]
@@ -84,6 +98,20 @@ def patch_memory(memory_id: str, payload: UserMemoryPatch) -> UserMemory:
         updates["memory_type"] = _required_text(updates["memory_type"], "memory_type")
     if "status" in updates:
         updates["status"] = _normalize_status(updates["status"])
+    if "scope_type" in updates:
+        updates["scope_type"] = _normalize_scope_type(updates["scope_type"])
+    if "scope_id" in updates:
+        updates["scope_id"] = _optional_text(updates["scope_id"])
+    if "evidence_message_ids" in updates:
+        updates["evidence_message_ids_json"] = _json_dumps(
+            _normalize_string_list(updates.pop("evidence_message_ids"), max_items=12)
+        )
+    if "auto_apply" in updates:
+        updates["auto_apply"] = 1 if bool(updates["auto_apply"]) else 0
+    if "last_confirmed_at" in updates:
+        updates["last_confirmed_at"] = _optional_text(updates["last_confirmed_at"])
+    if "expires_at" in updates:
+        updates["expires_at"] = _optional_text(updates["expires_at"])
 
     if updates:
         updates["updated_at"] = _utc_now()
@@ -131,15 +159,64 @@ def extract_memories(payload: MemoryExtractRequest) -> MemoryExtractResponse:
     return MemoryExtractResponse(created_count=len(created), memories=created)
 
 
+def create_memory_candidate(
+    *,
+    memory_type: str,
+    key: str,
+    value: str,
+    confidence: float,
+    source_conversation_id: str | None = None,
+    evidence: str | None = None,
+    scope_type: str = "global",
+    scope_id: str | None = None,
+    evidence_message_ids: list[str] | None = None,
+    sensitivity: str = "normal",
+    auto_apply: bool = True,
+) -> UserMemory | None:
+    return _upsert_candidate(
+        memory_type=memory_type,
+        key=key,
+        value=value,
+        confidence=confidence,
+        source_conversation_id=source_conversation_id,
+        evidence=evidence or "",
+        scope_type=scope_type,
+        scope_id=scope_id,
+        evidence_message_ids=evidence_message_ids or [],
+        sensitivity=sensitivity,
+        auto_apply=auto_apply,
+    )
+
+
 def build_relevant_memory_context(
     *,
     question: str,
     document_ids: list[str],
+    conversation_id: str | None = None,
     limit: int = 5,
 ) -> str:
-    del document_ids
-    memories = _relevant_active_memories(question, limit)
+    memories = select_relevant_memories(
+        question=question,
+        document_ids=document_ids,
+        conversation_id=conversation_id,
+        limit=limit,
+    )
     return build_memory_prompt_context(memories)
+
+
+def select_relevant_memories(
+    *,
+    question: str,
+    document_ids: list[str],
+    conversation_id: str | None = None,
+    limit: int = 5,
+) -> list[UserMemory]:
+    return _relevant_active_memories(
+        question=question,
+        document_ids=document_ids,
+        conversation_id=conversation_id,
+        limit=limit,
+    )
 
 
 def read_memory(memory_id: str) -> UserMemory:
@@ -174,6 +251,8 @@ def _candidate_specs(
             continue
         combined = "\n".join(message.content for message in user_messages)
         evidence = _evidence_from_messages(user_messages)
+        evidence_message_ids = [message.id for message in user_messages[:3]]
+        scoped_type, scoped_id = _scope_from_conversation(conversation)
 
         cjk_count = len(re.findall(r"[\u4e00-\u9fff]", combined))
         if len(user_messages) >= 3 and cjk_count >= 20:
@@ -185,6 +264,9 @@ def _candidate_specs(
                     "confidence": 0.72,
                     "source_conversation_id": conversation.id,
                     "evidence": evidence,
+                    "scope_type": "global",
+                    "scope_id": None,
+                    "evidence_message_ids": evidence_message_ids,
                 }
             )
 
@@ -195,6 +277,7 @@ def _candidate_specs(
                 flags=re.IGNORECASE,
             )
         )
+        quiz_hits += len(re.findall(r"出题|练习|习题|测验|考试", combined))
         if quiz_hits >= 2:
             specs.append(
                 {
@@ -204,6 +287,9 @@ def _candidate_specs(
                     "confidence": min(0.9, 0.6 + quiz_hits * 0.08),
                     "source_conversation_id": conversation.id,
                     "evidence": evidence,
+                    "scope_type": scoped_type,
+                    "scope_id": scoped_id,
+                    "evidence_message_ids": evidence_message_ids,
                 }
             )
 
@@ -218,6 +304,9 @@ def _candidate_specs(
                     "confidence": 0.65,
                     "source_conversation_id": conversation.id,
                     "evidence": evidence,
+                    "scope_type": "course",
+                    "scope_id": course,
+                    "evidence_message_ids": evidence_message_ids,
                 }
             )
 
@@ -230,6 +319,9 @@ def _candidate_specs(
                     "confidence": 0.58,
                     "source_conversation_id": conversation.id,
                     "evidence": evidence,
+                    "scope_type": "global",
+                    "scope_id": None,
+                    "evidence_message_ids": evidence_message_ids,
                 }
             )
     return specs
@@ -241,11 +333,22 @@ def _upsert_candidate(
     key: str,
     value: str,
     confidence: float,
-    source_conversation_id: str,
+    source_conversation_id: str | None,
     evidence: str,
+    scope_type: str = "global",
+    scope_id: str | None = None,
+    evidence_message_ids: list[str] | None = None,
+    sensitivity: str = "normal",
+    auto_apply: bool = True,
 ) -> UserMemory | None:
     profile_id = _profile_id()
     now = _utc_now()
+    normalized_scope_type = _normalize_scope_type(scope_type)
+    normalized_scope_id = _optional_text(scope_id)
+    normalized_evidence_message_ids = _normalize_string_list(
+        evidence_message_ids or [],
+        max_items=12,
+    )
     with metadata_connection() as connection:
         existing = connection.execute(
             """
@@ -253,9 +356,17 @@ def _upsert_candidate(
             WHERE profile_id = ?
               AND memory_type = ?
               AND COALESCE(key, '') = ?
+              AND scope_type = ?
+              AND COALESCE(scope_id, '') = ?
               AND status IN ('candidate', 'active')
             """,
-            (profile_id, memory_type, key or ""),
+            (
+                profile_id,
+                memory_type,
+                key or "",
+                normalized_scope_type,
+                normalized_scope_id or "",
+            ),
         ).fetchone()
         if existing:
             row = dict(existing)
@@ -264,13 +375,14 @@ def _upsert_candidate(
                 """
                 UPDATE user_memories
                 SET confidence = ?, source_conversation_id = ?, evidence = ?,
-                    last_seen_at = ?, updated_at = ?
+                    evidence_message_ids_json = ?, last_seen_at = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
                     next_confidence,
                     source_conversation_id,
                     evidence,
+                    _json_dumps(normalized_evidence_message_ids),
                     now,
                     now,
                     row["id"],
@@ -294,8 +406,14 @@ def _upsert_candidate(
                     source_conversation_id,
                     evidence,
                     "candidate",
-                    "normal",
+                    _optional_text(sensitivity) or "normal",
+                    normalized_scope_type,
+                    normalized_scope_id,
+                    _json_dumps(normalized_evidence_message_ids),
                     now,
+                    None,
+                    None,
+                    1 if auto_apply else 0,
                     now,
                     now,
                 ),
@@ -304,20 +422,98 @@ def _upsert_candidate(
     return read_memory(memory_id)
 
 
-def _relevant_active_memories(question: str, limit: int) -> list[UserMemory]:
-    active = list_memories("active")
+def _relevant_active_memories(
+    *,
+    question: str,
+    document_ids: list[str],
+    conversation_id: str | None,
+    limit: int,
+) -> list[UserMemory]:
+    active = [
+        memory
+        for memory in list_memories("active")
+        if memory.auto_apply and not _is_expired(memory)
+    ]
+    allowed_scopes = _allowed_scopes(document_ids, conversation_id)
     question_terms = {
         token.lower()
         for token in re.findall(r"[\w\u4e00-\u9fff]+", question)
         if len(token) >= 2
     }
 
-    def score(memory: UserMemory) -> tuple[float, str]:
+    def score(memory: UserMemory) -> tuple[float, float, str]:
         haystack = f"{memory.memory_type} {memory.key or ''} {memory.value}".lower()
         overlap = sum(1 for term in question_terms if term in haystack)
-        return (overlap + memory.confidence, memory.updated_at)
+        scope_weight = _scope_weight(memory, allowed_scopes)
+        return (scope_weight, overlap + memory.confidence, memory.updated_at)
 
-    return sorted(active, key=score, reverse=True)[: max(1, min(limit, 10))]
+    scoped = [
+        memory
+        for memory in active
+        if (memory.scope_type, memory.scope_id or "") in allowed_scopes
+    ]
+    return sorted(scoped, key=score, reverse=True)[: max(1, min(limit, 10))]
+
+
+def _allowed_scopes(
+    document_ids: list[str],
+    conversation_id: str | None,
+) -> set[tuple[str, str]]:
+    scopes: set[tuple[str, str]] = {("global", "")}
+    normalized_document_ids = [
+        safe_document_id(str(document_id or ""))
+        for document_id in document_ids
+        if str(document_id or "").strip()
+    ]
+    for document_id in normalized_document_ids:
+        if document_id:
+            scopes.add(("document", document_id))
+    if conversation_id:
+        scopes.add(("conversation", conversation_id))
+    for course in _course_scope_ids(normalized_document_ids):
+        scopes.add(("course", course))
+    return scopes
+
+
+def _course_scope_ids(document_ids: list[str]) -> list[str]:
+    normalized_document_ids = [item for item in document_ids if item]
+    if not normalized_document_ids:
+        return []
+    placeholders = ", ".join("?" for _item in normalized_document_ids)
+    profile_id = _profile_id()
+    with metadata_connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT DISTINCT course FROM managed_files
+            WHERE profile_id = ? AND document_id IN ({placeholders})
+              AND course IS NOT NULL AND TRIM(course) != ''
+            """,
+            (profile_id, *normalized_document_ids),
+        ).fetchall()
+    return [str(row["course"]) for row in rows]
+
+
+def _scope_weight(
+    memory: UserMemory,
+    allowed_scopes: set[tuple[str, str]],
+) -> float:
+    scope = (memory.scope_type, memory.scope_id or "")
+    if scope not in allowed_scopes:
+        return -1.0
+    if memory.scope_type in {"document", "course"}:
+        return 3.0
+    if memory.scope_type == "conversation":
+        return 2.0
+    return 1.0
+
+
+def _scope_from_conversation(conversation: Any) -> tuple[str, str | None]:
+    courses = conversation.file_context.get("courses") or []
+    if courses:
+        return "course", str(courses[0])
+    if len(conversation.document_ids) == 1:
+        return "document", safe_document_id(conversation.document_ids[0])
+    return "conversation", conversation.id
 
 
 def _recent_conversations(limit: int) -> list[Any]:
@@ -338,14 +534,16 @@ def _recent_conversations(limit: int) -> list[Any]:
 def _set_memory_status(memory_id: str, status: str) -> UserMemory:
     memory = read_memory(memory_id)
     now = _utc_now()
+    last_confirmed_at = now if status == "active" else memory.last_confirmed_at
     with metadata_connection() as connection:
         connection.execute(
             """
             UPDATE user_memories
-            SET status = ?, updated_at = ?, last_seen_at = COALESCE(last_seen_at, ?)
+            SET status = ?, updated_at = ?, last_seen_at = COALESCE(last_seen_at, ?),
+                last_confirmed_at = ?
             WHERE id = ? AND profile_id = ?
             """,
-            (status, now, now, memory.id, memory.profile_id),
+            (status, now, now, last_confirmed_at, memory.id, memory.profile_id),
         )
     return read_memory(memory.id)
 
@@ -390,7 +588,13 @@ def _memory_from_row(row: dict[str, Any]) -> UserMemory:
         evidence=row.get("evidence"),
         status=str(row.get("status") or "candidate"),
         sensitivity=str(row.get("sensitivity") or "normal"),
+        scope_type=_normalize_scope_type(row.get("scope_type")),
+        scope_id=row.get("scope_id"),
+        evidence_message_ids=_load_json_list(row.get("evidence_message_ids_json")),
         last_seen_at=row.get("last_seen_at"),
+        last_confirmed_at=row.get("last_confirmed_at"),
+        expires_at=row.get("expires_at"),
+        auto_apply=bool(row.get("auto_apply", 1)),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
@@ -404,11 +608,52 @@ def _evidence_from_messages(messages: list[Any]) -> str:
     return " | ".join(snippets)
 
 
+def _is_expired(memory: UserMemory) -> bool:
+    return bool(memory.expires_at and memory.expires_at <= _utc_now())
+
+
+def _normalize_scope_type(value: Any) -> str:
+    scope_type = _optional_text(value) or "global"
+    if scope_type not in {"global", "course", "document", "conversation"}:
+        raise HTTPException(status_code=400, detail="Invalid memory scope_type.")
+    return scope_type
+
+
 def _normalize_status(value: Any) -> str:
     status = _optional_text(value) or "candidate"
     if status not in {"candidate", "active", "dismissed", "expired", "deleted"}:
         raise HTTPException(status_code=400, detail="Invalid memory status.")
     return status
+
+
+def _normalize_string_list(value: Any, max_items: int = 20) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    items: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        items.append(text[:160])
+        seen.add(text)
+        if len(items) >= max_items:
+            break
+    return items
+
+
+def _load_json_list(value: Any) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(str(value))
+    except json.JSONDecodeError:
+        return []
+    return _normalize_string_list(parsed, max_items=20)
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _key_slug(value: str) -> str:

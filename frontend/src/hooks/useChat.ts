@@ -127,6 +127,7 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
         mode,
         vlm_enhanced: vlmEnhanced,
         conversation_id: conversationId,
+        client_user_message_id: userMessageId,
         use_profile: useProfile,
         use_memory: useMemory,
       };
@@ -144,6 +145,12 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
 
       const relatedImages = mapRelatedImages(response.related_images);
       const inlineImageRefs = response.inline_image_refs?.filter(Boolean);
+      if (response.user_message_id && response.user_message_id !== userMessageId) {
+        updateMessage(conversationId, userMessageId, (message) => ({
+          ...message,
+          id: response.user_message_id || message.id,
+        }));
+      }
       appendMessage(conversationId, {
         id: response.assistant_message_id || crypto.randomUUID(),
         role: "assistant",

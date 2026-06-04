@@ -23,6 +23,9 @@ from backend.storage.sqlite import metadata_connection
 
 DEFAULT_PROFILE_ID = "default"
 DEFAULT_AGENTS_MD = CUSTOM_AGENTS_MD_DEFAULT
+AGENTS_MD_MAX_CHARS = 4000
+PROFILE_TEXT_MAX_CHARS = 240
+CITATION_PREFERENCE_MAX_CHARS = 600
 
 PROFILE_COLUMNS = (
     "id",
@@ -104,8 +107,8 @@ def build_prompt_context(profile: UserProfile, level: str | None = None) -> str:
         parts.append(f"Prefer explanations in {profile.preferred_language}.")
     if profile.answer_style:
         parts.append(f"Use a {profile.answer_style} answer style.")
-    if profile.default_depth:
-        parts.append(f"Use {profile.default_depth}-level depth by default.")
+    if selected_level:
+        parts.append(f"Use {selected_level}-level depth for this response.")
     if profile.math_level:
         parts.append(f"Assume {profile.math_level} math background.")
     if profile.coding_level:
@@ -175,17 +178,27 @@ def _write_profile(data: dict[str, Any]) -> None:
     values = {
         "id": data["id"],
         "display_name": _required_text(data.get("display_name"), "display_name"),
-        "role": _optional_text(data.get("role")),
-        "education_level": _optional_text(data.get("education_level")),
-        "major": _optional_text(data.get("major")),
+        "role": _optional_text(data.get("role"), "role"),
+        "education_level": _optional_text(data.get("education_level"), "education_level"),
+        "major": _optional_text(data.get("major"), "major"),
         "learning_goals_json": json.dumps(goals, ensure_ascii=False),
-        "preferred_language": _optional_text(data.get("preferred_language")),
-        "answer_style": _optional_text(data.get("answer_style")),
-        "math_level": _optional_text(data.get("math_level")),
-        "coding_level": _optional_text(data.get("coding_level")),
-        "default_depth": _optional_text(data.get("default_depth")),
-        "citation_preference": _optional_text(data.get("citation_preference")),
-        "agents_md": _optional_text(data.get("agents_md")),
+        "preferred_language": _optional_text(data.get("preferred_language"), "preferred_language"),
+        "answer_style": _optional_text(data.get("answer_style"), "answer_style"),
+        "math_level": _optional_text(data.get("math_level"), "math_level"),
+        "coding_level": _optional_text(data.get("coding_level"), "coding_level"),
+        "default_depth": normalize_answer_level(
+            _optional_text(data.get("default_depth"), "default_depth") or "undergraduate"
+        ),
+        "citation_preference": _optional_text(
+            data.get("citation_preference"),
+            "citation_preference",
+            CITATION_PREFERENCE_MAX_CHARS,
+        ),
+        "agents_md": _optional_text(
+            data.get("agents_md"),
+            "agents_md",
+            AGENTS_MD_MAX_CHARS,
+        ),
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],
     }
@@ -236,10 +249,14 @@ def _normalize_goals(value: Any) -> list[str]:
     seen: set[str] = set()
     for item in value:
         text = str(item).strip()
+        if len(text) > 120:
+            raise HTTPException(status_code=400, detail="learning_goals item is too long.")
         key = text.lower()
         if text and key not in seen:
             goals.append(text)
             seen.add(key)
+        if len(goals) >= 20:
+            break
     return goals
 
 
@@ -260,10 +277,16 @@ def _required_text(value: Any, field_name: str) -> str:
     return text
 
 
-def _optional_text(value: Any) -> str | None:
+def _optional_text(
+    value: Any,
+    field_name: str = "value",
+    max_chars: int = PROFILE_TEXT_MAX_CHARS,
+) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
+    if len(text) > max_chars:
+        raise HTTPException(status_code=400, detail=f"{field_name} is too long.")
     return text or None
 
 

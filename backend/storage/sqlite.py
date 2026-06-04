@@ -111,7 +111,13 @@ CREATE TABLE IF NOT EXISTS user_memories (
     evidence TEXT,
     status TEXT DEFAULT 'candidate',
     sensitivity TEXT DEFAULT 'normal',
+    scope_type TEXT DEFAULT 'global',
+    scope_id TEXT,
+    evidence_message_ids_json TEXT NOT NULL DEFAULT '[]',
     last_seen_at TEXT,
+    last_confirmed_at TEXT,
+    expires_at TEXT,
+    auto_apply INTEGER DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -131,6 +137,22 @@ CREATE TABLE IF NOT EXISTS memory_events (
 
 CREATE INDEX IF NOT EXISTS idx_memory_events_profile_created
     ON memory_events(profile_id, created_at);
+
+CREATE TABLE IF NOT EXISTS learning_feedback (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    rating TEXT,
+    difficulty TEXT,
+    style_feedback TEXT,
+    note TEXT,
+    created_memory_ids_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_feedback_profile_created
+    ON learning_feedback(profile_id, created_at);
 """
 
 
@@ -139,6 +161,17 @@ def init_metadata_db() -> None:
     with sqlite3.connect(METADATA_DB_PATH) as connection:
         connection.executescript(SCHEMA_SQL)
         _ensure_column(connection, "user_profiles", "agents_md", "TEXT")
+        _ensure_column(connection, "user_memories", "scope_type", "TEXT DEFAULT 'global'")
+        _ensure_column(connection, "user_memories", "scope_id", "TEXT")
+        _ensure_column(
+            connection,
+            "user_memories",
+            "evidence_message_ids_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )
+        _ensure_column(connection, "user_memories", "last_confirmed_at", "TEXT")
+        _ensure_column(connection, "user_memories", "expires_at", "TEXT")
+        _ensure_column(connection, "user_memories", "auto_apply", "INTEGER DEFAULT 1")
         connection.commit()
 
 

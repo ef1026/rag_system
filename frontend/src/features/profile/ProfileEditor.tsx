@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { MemoryReviewPanel } from "@/features/memory/MemoryReviewPanel";
+import type { UserMemory } from "@/features/memory/types";
 import type { AnswerLevel } from "@/types/chat";
 import { profileApi } from "./api";
 import { ProfilePromptPreview } from "./ProfilePromptPreview";
-import type { UserProfile, UserProfileInput } from "./types";
+import type {
+  PersonalizationPreviewResponse,
+  UserProfile,
+  UserProfileInput,
+} from "./types";
 
 type TextFieldKey = Exclude<
   keyof UserProfileInput,
@@ -59,29 +64,39 @@ export function ProfileEditor() {
   const [customAgentsText, setCustomAgentsText] = useState("");
   const [builtinAgents, setBuiltinAgents] = useState<Record<string, string | undefined>>({});
   const [promptContext, setPromptContext] = useState("");
+  const [retrievalHints, setRetrievalHints] = useState<string[]>([]);
+  const [usedProfileFields, setUsedProfileFields] = useState<string[]>([]);
+  const [usedMemories, setUsedMemories] = useState<UserMemory[]>([]);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    void loadProfile();
+  const applyPreview = useCallback((nextPrompt: PersonalizationPreviewResponse) => {
+    setBuiltinAgents(nextPrompt.builtin_agents_md);
+    setPromptContext(nextPrompt.prompt_context);
+    setRetrievalHints(nextPrompt.retrieval_hints || []);
+    setUsedProfileFields(nextPrompt.used_profile_fields || []);
+    setUsedMemories(nextPrompt.used_memories || []);
+    setPreviewWarnings(nextPrompt.warnings || []);
   }, []);
 
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
-      const [nextProfile, nextPrompt] = await Promise.all([
-        profileApi.get(),
-        profileApi.promptContext(),
-      ]);
+      const nextProfile = await profileApi.get();
+      const nextPrompt = await profileApi.personalizationPreview({
+        level: nextProfile.default_depth || "undergraduate",
+        use_profile: true,
+        use_memory: true,
+      });
       setProfile(nextProfile);
       setForm(toProfileInput(nextProfile));
       setGoalsText(nextProfile.learning_goals.join("\n"));
       setCustomAgentsText(nextProfile.agents_md || "");
-      setBuiltinAgents(nextPrompt.builtin_agents_md);
-      setPromptContext(nextPrompt.prompt_context);
+      applyPreview(nextPrompt);
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "Profile loading failed.",
@@ -89,7 +104,11 @@ export function ProfileEditor() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [applyPreview]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,13 +122,16 @@ export function ProfileEditor() {
         learning_goals: parseGoals(goalsText),
       };
       const savedProfile = await profileApi.save(payload);
-      const nextPrompt = await profileApi.promptContext(savedProfile.default_depth);
+      const nextPrompt = await profileApi.personalizationPreview({
+        level: savedProfile.default_depth || "undergraduate",
+        use_profile: true,
+        use_memory: true,
+      });
       setProfile(savedProfile);
       setForm(toProfileInput(savedProfile));
       setGoalsText(savedProfile.learning_goals.join("\n"));
       setCustomAgentsText(savedProfile.agents_md || "");
-      setBuiltinAgents(nextPrompt.builtin_agents_md);
-      setPromptContext(nextPrompt.prompt_context);
+      applyPreview(nextPrompt);
       setNotice("Profile saved.");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Profile save failed.");
@@ -132,9 +154,12 @@ export function ProfileEditor() {
     }));
     setError("");
     try {
-      const nextPrompt = await profileApi.promptContext(level);
-      setBuiltinAgents(nextPrompt.builtin_agents_md);
-      setPromptContext(nextPrompt.prompt_context);
+      const nextPrompt = await profileApi.personalizationPreview({
+        level,
+        use_profile: true,
+        use_memory: true,
+      });
+      applyPreview(nextPrompt);
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "Profile preview failed.",
@@ -195,7 +220,7 @@ export function ProfileEditor() {
                   className={selectedDepth === item.value ? "active" : ""}
                   onClick={() => void updateDefaultDepth(item.value)}
                 >
-                  {item.label}
+                  {depthLabel(item.value)}
                 </button>
               ))}
             </div>
@@ -218,8 +243,8 @@ export function ProfileEditor() {
             />
             <small className="field-help">
               {agentsEditable
-                ? "当前选择自定义，保存后 Chat 自定义难度会使用这段提示词。"
-                : "当前为内置难度，AGENTS.md 只读展示；选择自定义后才可编辑。"}
+                ? "当前为自定义深度，保存后 Chat 的自定义模式会使用这段提示词。"
+                : "当前为内置深度，AGENTS.md 仅用于预览；选择自定义后可编辑。"}
             </small>
           </label>
         </div>
@@ -227,6 +252,10 @@ export function ProfileEditor() {
 
       <ProfilePromptPreview
         promptContext={promptContext}
+        retrievalHints={retrievalHints}
+        usedProfileFields={usedProfileFields}
+        usedMemories={usedMemories}
+        warnings={previewWarnings}
         isLoading={isLoading || isSaving}
       />
       <MemoryReviewPanel />
@@ -258,6 +287,13 @@ function normalizeDepth(value: string | null | undefined): AnswerLevel {
     value === "custom"
     ? value
     : "undergraduate";
+}
+
+function depthLabel(value: AnswerLevel) {
+  if (value === "beginner") return "入门";
+  if (value === "expert") return "专家";
+  if (value === "custom") return "自定义";
+  return "本科";
 }
 
 function parseGoals(value: string) {

@@ -38,6 +38,7 @@ export type ChatRequest = {
   mode: string;
   vlm_enhanced?: boolean | "auto";
   conversation_id?: string;
+  client_user_message_id?: string;
   use_profile?: boolean;
   use_memory?: boolean;
 };

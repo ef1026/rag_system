@@ -50,6 +50,16 @@ type ChatPanelProps = {
   onUseMemoryChange: (useMemory: boolean) => void;
   onCustomAgentsChange: (value: string) => void;
   onSaveCustomAgents: () => Promise<void>;
+  onMessageFeedback: (
+    messageId: string,
+    feedback: MessageFeedbackPayload,
+  ) => Promise<number>;
+};
+
+type MessageFeedbackPayload = {
+  rating?: "helpful" | "not_helpful";
+  difficulty?: "too_easy" | "too_hard";
+  style_feedback?: "needs_examples" | "needs_derivation" | "more_concise";
 };
 
 const levels: { value: AnswerLevel; label: string }[] = [
@@ -101,9 +111,13 @@ export function ChatPanel({
   onUseMemoryChange,
   onCustomAgentsChange,
   onSaveCustomAgents,
+  onMessageFeedback,
 }: ChatPanelProps) {
   const [question, setQuestion] = useState("");
   const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
+  const [feedbackState, setFeedbackState] = useState<
+    Record<string, { isSaving?: boolean; notice?: string; error?: string }>
+  >({});
   const messageListRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const customPromptTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -202,6 +216,34 @@ export function ChatPanel({
     void submitQuestion();
   }
 
+  async function submitFeedback(
+    messageId: string,
+    feedback: MessageFeedbackPayload,
+  ) {
+    setFeedbackState((current) => ({
+      ...current,
+      [messageId]: { isSaving: true },
+    }));
+    try {
+      const createdCount = await onMessageFeedback(messageId, feedback);
+      setFeedbackState((current) => ({
+        ...current,
+        [messageId]: {
+          notice: createdCount
+            ? `Feedback saved. ${createdCount} memory candidate(s) created.`
+            : "Feedback saved.",
+        },
+      }));
+    } catch (nextError) {
+      setFeedbackState((current) => ({
+        ...current,
+        [messageId]: {
+          error: nextError instanceof Error ? nextError.message : "Feedback failed.",
+        },
+      }));
+    }
+  }
+
   return (
     <section className="chat-panel">
       <div className="chat-panel-header">
@@ -267,7 +309,7 @@ export function ChatPanel({
           <div className="answer-depth-control">
             <div className="answer-depth-heading">
               <span className="control-label">回答深度</span>
-              <span className="depth-current">{selectedLevel.label}</span>
+              <span className="depth-current">{depthLabel(selectedLevel.value)}</span>
             </div>
             <div
               className="segmented-control answer-depth-segmented"
@@ -281,7 +323,7 @@ export function ChatPanel({
                   disabled={!conversation}
                   onClick={() => selectLevel(item.value)}
                 >
-                  {item.label}
+                  {depthLabel(item.value)}
                 </button>
               ))}
             </div>
@@ -363,7 +405,12 @@ export function ChatPanel({
           <p className="chat-status muted">{warmupError}</p>
         ) : null}
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            feedbackState={feedbackState[message.id]}
+            onFeedback={(feedback) => void submitFeedback(message.id, feedback)}
+          />
         ))}
       </div>
 
@@ -474,6 +521,13 @@ function getAskDisabledReason({
   return "";
 }
 
+function depthLabel(value: AnswerLevel) {
+  if (value === "beginner") return "入门";
+  if (value === "expert") return "专家";
+  if (value === "custom") return "自定义";
+  return "本科";
+}
+
 function getPlaceholder({
   hasConversation,
   selectedDocumentIds,
@@ -522,7 +576,15 @@ function resizeQuestionInput(textarea: HTMLTextAreaElement | null) {
   textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  feedbackState,
+  onFeedback,
+}: {
+  message: ChatMessage;
+  feedbackState?: { isSaving?: boolean; notice?: string; error?: string };
+  onFeedback: (feedback: MessageFeedbackPayload) => void;
+}) {
   const displayContent = getContentWithInlineImages(message);
   const fallbackImages = getFallbackRelatedImages(message, displayContent);
 
@@ -536,6 +598,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             relatedImages={message.relatedImages}
           />
           <RelatedImages images={fallbackImages} />
+          <MessageFeedback
+            isSaving={Boolean(feedbackState?.isSaving)}
+            notice={feedbackState?.notice}
+            error={feedbackState?.error}
+            onFeedback={onFeedback}
+          />
         </>
       ) : (
         <p>{message.content}</p>
@@ -547,6 +615,46 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         </p>
       ) : null}
     </article>
+  );
+}
+
+function MessageFeedback({
+  isSaving,
+  notice,
+  error,
+  onFeedback,
+}: {
+  isSaving: boolean;
+  notice?: string;
+  error?: string;
+  onFeedback: (feedback: MessageFeedbackPayload) => void;
+}) {
+  const actions: Array<{ label: string; payload: MessageFeedbackPayload }> = [
+    { label: "有帮助", payload: { rating: "helpful" } },
+    { label: "太简单", payload: { difficulty: "too_easy" } },
+    { label: "太难", payload: { difficulty: "too_hard" } },
+    { label: "需要例子", payload: { style_feedback: "needs_examples" } },
+    { label: "需要推导", payload: { style_feedback: "needs_derivation" } },
+    { label: "更简洁", payload: { style_feedback: "more_concise" } },
+  ];
+
+  return (
+    <div className="message-feedback">
+      <div className="message-feedback-actions" aria-label="学习反馈">
+        {actions.map((action) => (
+          <button
+            type="button"
+            key={action.label}
+            disabled={isSaving}
+            onClick={() => onFeedback(action.payload)}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+      {notice ? <p className="message-feedback-note">{notice}</p> : null}
+      {error ? <p className="message-feedback-error">{error}</p> : null}
+    </div>
   );
 }
 

@@ -51,6 +51,7 @@ class ChatRequest(BaseModel):
     mode: str = "hybrid"
     vlm_enhanced: bool | Literal["auto"] = "auto"
     conversation_id: str | None = None
+    client_user_message_id: str | None = None
     use_profile: bool = True
     use_memory: bool = False
 
@@ -209,6 +210,32 @@ class ProfilePromptContextResponse(BaseModel):
     effective_agents_md: str
     agents_md_editable: bool
     builtin_agents_md: dict[str, str] = Field(default_factory=dict)
+    used_profile_fields: list[str] = Field(default_factory=list)
+    used_memories: list["UserMemory"] = Field(default_factory=list)
+    retrieval_hints: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class PersonalizationPreviewRequest(BaseModel):
+    question: str | None = None
+    document_ids: list[str] = Field(default_factory=list)
+    level: str = "undergraduate"
+    conversation_id: str | None = None
+    use_profile: bool = True
+    use_memory: bool = True
+
+
+class PersonalizationPreviewResponse(BaseModel):
+    profile_id: str
+    prompt_context: str
+    selected_level: str
+    effective_agents_md: str
+    agents_md_editable: bool
+    builtin_agents_md: dict[str, str] = Field(default_factory=dict)
+    used_profile_fields: list[str] = Field(default_factory=list)
+    used_memories: list["UserMemory"] = Field(default_factory=list)
+    retrieval_hints: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class Folder(BaseModel):
@@ -389,7 +416,13 @@ class UserMemory(BaseModel):
     evidence: str | None = None
     status: str = "candidate"
     sensitivity: str = "normal"
+    scope_type: Literal["global", "course", "document", "conversation"] = "global"
+    scope_id: str | None = None
+    evidence_message_ids: list[str] = Field(default_factory=list)
     last_seen_at: str | None = None
+    last_confirmed_at: str | None = None
+    expires_at: str | None = None
+    auto_apply: bool = True
     created_at: str
     updated_at: str
 
@@ -402,6 +435,12 @@ class UserMemoryPatch(BaseModel):
     evidence: str | None = None
     status: str | None = None
     sensitivity: str | None = None
+    scope_type: Literal["global", "course", "document", "conversation"] | None = None
+    scope_id: str | None = None
+    evidence_message_ids: list[str] | None = None
+    last_confirmed_at: str | None = None
+    expires_at: str | None = None
+    auto_apply: bool | None = None
 
 
 class MemoryExtractRequest(BaseModel):
@@ -412,3 +451,28 @@ class MemoryExtractRequest(BaseModel):
 class MemoryExtractResponse(BaseModel):
     created_count: int
     memories: list[UserMemory] = Field(default_factory=list)
+
+
+class ProfileFeedbackRequest(BaseModel):
+    conversation_id: str = Field(min_length=1)
+    message_id: str = Field(min_length=1)
+    rating: Literal["helpful", "not_helpful"] | None = None
+    difficulty: Literal["too_easy", "too_hard"] | None = None
+    style_feedback: Literal[
+        "needs_examples",
+        "needs_derivation",
+        "more_concise",
+    ] | None = None
+    note: str | None = None
+
+
+class ProfileFeedbackResponse(BaseModel):
+    ok: bool = True
+    created_memory_candidates: list[UserMemory] = Field(default_factory=list)
+
+
+for _model in (ProfilePromptContextResponse, PersonalizationPreviewResponse):
+    if hasattr(_model, "model_rebuild"):
+        _model.model_rebuild()
+    elif hasattr(_model, "update_forward_refs"):
+        _model.update_forward_refs()
