@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { conversationsApi } from "@/features/conversations/api";
 import {
   createConversationTitle,
   loadConversations,
@@ -8,13 +9,13 @@ import {
   trimConversationMessages,
   trimConversations,
 } from "@/lib/conversationStorage";
-import { conversationsApi } from "@/features/conversations/api";
 import type { AnswerLevel, ChatMessage, ChatMode, Conversation } from "@/types/chat";
 import type { DocumentSummary } from "@/types/document";
 
 const DEFAULT_LEVEL: AnswerLevel = "undergraduate";
 const DEFAULT_CHAT_MODE: ChatMode = "multimodal";
 const DEFAULT_RAG_MODE = "hybrid";
+const DEFAULT_TITLE = "新对话";
 
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -49,7 +50,7 @@ export function useConversations() {
     const now = new Date().toISOString();
     const nextConversation: Conversation = {
       id: crypto.randomUUID(),
-      title: "新对话",
+      title: DEFAULT_TITLE,
       documentIds: documents.map((document) => document.id),
       documentNames: documents.map((document) => document.name),
       mode: DEFAULT_RAG_MODE,
@@ -153,7 +154,7 @@ export function useConversations() {
       updateConversation(conversationId, (conversation) => {
         const messages = trimConversationMessages([...conversation.messages, message]);
         const title =
-          conversation.title === "新对话" && message.role === "user"
+          conversation.title === DEFAULT_TITLE && message.role === "user"
             ? createConversationTitle(message.content)
             : conversation.title;
 

@@ -21,23 +21,23 @@ export function ProfilePromptPreview({
     <section className="panel profile-preview">
       <div className="panel-heading">
         <div>
-          <p className="section-label">Prompt Preview</p>
-          <h2>Personalization context</h2>
+          <p className="section-label">提示词预览</p>
+          <h2>个性化上下文</h2>
         </div>
       </div>
       <pre className="prompt-preview-text">
-        {isLoading ? "Loading profile context..." : promptContext}
+        {isLoading ? "正在加载画像上下文..." : promptContext}
       </pre>
       <div className="personalization-preview-grid">
-        <PreviewList title="Profile fields" items={usedProfileFields} />
-        <PreviewList title="Retrieval hints" items={retrievalHints} />
+        <PreviewList title="已使用画像字段" items={usedProfileFields} />
+        <PreviewList title="检索提示" items={retrievalHints} />
         <PreviewList
-          title="Used memories"
+          title="本次使用的记忆"
           items={usedMemories.map((memory) =>
-            `${memory.memory_type}${memory.key ? `:${memory.key}` : ""} (${memory.scope_type}${memory.scope_id ? `:${memory.scope_id}` : ""})`,
+            `${memory.memory_type}${memory.key ? `:${memory.key}` : ""} (${formatScope(memory)})`,
           )}
         />
-        <PreviewList title="Warnings" items={warnings} muted />
+        <PreviewList title="警告" items={warnings} muted />
       </div>
     </section>
   );
@@ -62,8 +62,18 @@ function PreviewList({
           ))}
         </ul>
       ) : (
-        <p className="empty-state compact">None</p>
+        <p className="empty-state compact">暂无</p>
       )}
     </section>
   );
+}
+
+function formatScope(memory: UserMemory) {
+  const scopeLabel = {
+    global: "全局",
+    course: "课程",
+    document: "文档",
+    conversation: "对话",
+  }[memory.scope_type];
+  return memory.scope_id ? `${scopeLabel}:${memory.scope_id}` : scopeLabel;
 }

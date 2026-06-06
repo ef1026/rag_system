@@ -7,12 +7,13 @@ import { DocumentList } from "@/components/document/DocumentList";
 import { UploadDropzone } from "@/components/document/UploadDropzone";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/Button";
-import { api } from "@/lib/api";
+import { profileApi } from "@/features/profile/api";
+import { QuizPanel } from "@/features/quiz/QuizPanel";
 import { useChat } from "@/hooks/useChat";
 import { useConversations } from "@/hooks/useConversations";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useUpload } from "@/hooks/useUpload";
-import { profileApi } from "@/features/profile/api";
+import { api } from "@/lib/api";
 import type { ProfileFeedbackRequest } from "@/features/profile/types";
 import type { ApiHealth, RAGStatusResponse } from "@/types/api";
 import type { AnswerLevel, ChatMode, Conversation } from "@/types/chat";
@@ -93,9 +94,7 @@ export default function Home() {
           ? `后端已连接 · MinerU ${health.mineru_backend}/${health.mineru_device}`
           : healthError || "正在连接后端..."}
       </span>
-      {health && !health.has_api_key ? (
-        <strong>未检测到 Qwen API key</strong>
-      ) : null}
+      {health && !health.has_api_key ? <strong>未检测到 Qwen API Key</strong> : null}
     </>
   );
 
@@ -150,7 +149,7 @@ export default function Home() {
         agents_md: customAgentsMd,
       });
       setCustomAgentsMd(savedProfile.agents_md || "");
-      setCustomAgentsNotice("自定义 AGENTS.md 已保存。");
+      setCustomAgentsNotice("自定义提示词已保存。");
     } catch (nextError) {
       setCustomAgentsError(
         nextError instanceof Error ? nextError.message : "自定义提示词保存失败",
@@ -193,7 +192,7 @@ export default function Home() {
       : conversation.documentIds.filter((documentId) => documentId !== document.id);
     const uniqueDocumentIds = Array.from(new Set(nextDocumentIds));
     if (uniqueDocumentIds.length > 3) {
-      setDocumentSelectionError("最多选择 3 个文档");
+      setDocumentSelectionError("最多选择 3 个文档。");
       return;
     }
 
@@ -227,7 +226,7 @@ export default function Home() {
           <section className="panel documents-panel">
             <div className="panel-heading">
               <div>
-                <p className="section-label">Documents</p>
+                <p className="section-label">文档</p>
                 <h2>文档队列</h2>
               </div>
               <Button type="button" variant="ghost" onClick={() => void documents.refresh()}>
@@ -326,15 +325,18 @@ export default function Home() {
           {chat.error ? <p className="error-text">{chat.error}</p> : null}
         </section>
 
-        <aside className="right-rail panel conversation-panel" aria-label="对话记录">
-          <ConversationHistoryPanel
-            conversations={conversations.conversations}
-            activeConversationId={conversations.activeConversationId}
-            onCreate={createConversation}
-            onSelect={selectConversation}
-            onDelete={conversations.deleteConversation}
-            onClearAll={conversations.clearConversations}
-          />
+        <aside className="right-rail" aria-label="学习与对话记录">
+          <QuizPanel conversation={conversations.activeConversation} />
+          <section className="panel conversation-panel">
+            <ConversationHistoryPanel
+              conversations={conversations.conversations}
+              activeConversationId={conversations.activeConversationId}
+              onCreate={createConversation}
+              onSelect={selectConversation}
+              onDelete={conversations.deleteConversation}
+              onClearAll={conversations.clearConversations}
+            />
+          </section>
         </aside>
       </div>
     </AppShell>
@@ -346,7 +348,7 @@ function getBoundDocumentIssue(
   documents: DocumentSummary[],
 ) {
   if (!conversation || conversation.documentIds.length === 0) return "";
-  if (conversation.documentIds.length > 3) return "最多选择 3 个文档";
+  if (conversation.documentIds.length > 3) return "最多选择 3 个文档。";
 
   const missingDocuments: string[] = [];
   const notReadyDocuments: string[] = [];

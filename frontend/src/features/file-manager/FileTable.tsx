@@ -18,11 +18,11 @@ export function FileTable({
   const folderNames = new Map(folders.map((folder) => [folder.id, folder.name]));
 
   if (isLoading) {
-    return <p className="empty-state">Loading managed files...</p>;
+    return <p className="empty-state">正在加载托管文件...</p>;
   }
 
   if (!files.length) {
-    return <p className="empty-state">No files match the current filters.</p>;
+    return <p className="empty-state">当前筛选条件下没有文件。</p>;
   }
 
   return (
@@ -30,11 +30,11 @@ export function FileTable({
       <table className="file-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Course</th>
-            <th>Folder</th>
-            <th>Tags</th>
-            <th>Status</th>
+            <th>名称</th>
+            <th>课程</th>
+            <th>文件夹</th>
+            <th>标签</th>
+            <th>状态</th>
           </tr>
         </thead>
         <tbody>
@@ -50,12 +50,12 @@ export function FileTable({
                   <span>{file.document_id}</span>
                 </button>
                 <div className="file-flags">
-                  {file.pinned ? <span>Pinned</span> : null}
-                  {file.archived ? <span>Archived</span> : null}
+                  {file.pinned ? <span>置顶</span> : null}
+                  {file.archived ? <span>已归档</span> : null}
                 </div>
               </td>
               <td>{file.course || "-"}</td>
-              <td>{file.folder_id ? folderNames.get(file.folder_id) || "Missing" : "-"}</td>
+              <td>{file.folder_id ? folderNames.get(file.folder_id) || "缺失" : "-"}</td>
               <td>
                 <div className="tag-row compact">
                   {file.tags.length ? (
@@ -71,7 +71,7 @@ export function FileTable({
               </td>
               <td>
                 <span className={`document-status status-${file.status || "unknown"}`}>
-                  {file.status || "unknown"}
+                  {statusLabel(file.status)}
                 </span>
               </td>
             </tr>
@@ -80,4 +80,14 @@ export function FileTable({
       </table>
     </div>
   );
+}
+
+function statusLabel(status: string | null | undefined) {
+  if (status === "uploaded") return "待解析";
+  if (status === "parsed") return "已解析";
+  if (status === "indexing") return "索引中";
+  if (status === "ready_for_chat") return "可提问";
+  if (status === "partial_success") return "部分成功";
+  if (status === "failed") return "失败";
+  return "未知";
 }

@@ -153,6 +153,57 @@ CREATE TABLE IF NOT EXISTS learning_feedback (
 
 CREATE INDEX IF NOT EXISTS idx_learning_feedback_profile_created
     ON learning_feedback(profile_id, created_at);
+
+CREATE TABLE IF NOT EXISTS quiz_sessions (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    questions_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_quiz_sessions_profile_created
+    ON quiz_sessions(profile_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_quiz_sessions_conversation
+    ON quiz_sessions(conversation_id, created_at);
+
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+    id TEXT PRIMARY KEY,
+    quiz_session_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    answers_json TEXT NOT NULL DEFAULT '[]',
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    total_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_session_created
+    ON quiz_attempts(quiz_session_id, created_at);
+
+CREATE TABLE IF NOT EXISTS wrong_questions (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    quiz_session_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    question_id TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    choices_json TEXT NOT NULL DEFAULT '[]',
+    selected_choice_id TEXT NOT NULL,
+    correct_choice_id TEXT NOT NULL,
+    explanation TEXT,
+    source_message_ids_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    reviewed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_wrong_questions_profile_created
+    ON wrong_questions(profile_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_wrong_questions_profile_reviewed
+    ON wrong_questions(profile_id, reviewed_at);
 """
 
 
@@ -172,6 +223,9 @@ def init_metadata_db() -> None:
         _ensure_column(connection, "user_memories", "last_confirmed_at", "TEXT")
         _ensure_column(connection, "user_memories", "expires_at", "TEXT")
         _ensure_column(connection, "user_memories", "auto_apply", "INTEGER DEFAULT 1")
+        _ensure_column(connection, "quiz_sessions", "questions_json", "TEXT NOT NULL DEFAULT '[]'")
+        _ensure_column(connection, "wrong_questions", "source_message_ids_json", "TEXT NOT NULL DEFAULT '[]'")
+        _ensure_column(connection, "wrong_questions", "reviewed_at", "TEXT")
         connection.commit()
 
 

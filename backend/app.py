@@ -39,6 +39,7 @@ from backend.api import (  # noqa: E402
     images,
     memory,
     profile,
+    quizzes,
 )
 
 app.include_router(health.router)
@@ -50,3 +51,4 @@ app.include_router(profile.router)
 app.include_router(file_manager.router)
 app.include_router(conversations.router)
 app.include_router(memory.router)
+app.include_router(quizzes.router)

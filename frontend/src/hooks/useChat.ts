@@ -28,7 +28,7 @@ type AskOptions = {
 function statusForElapsed(seconds: number, chatMode: ChatMode) {
   if (chatMode === "fast_text") {
     return seconds >= 30
-      ? "仍在使用文本索引快速检索，请稍候..."
+      ? "仍在使用文本索引检索，请稍候..."
       : "正在使用文本索引快速检索。";
   }
   return seconds >= 30
@@ -82,11 +82,11 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) return false;
     if (!conversationId) {
-      setError("请先新建对话");
+      setError("请先新建对话。");
       return false;
     }
     if (!documentIds.length) {
-      setError("请至少选择一个可提问文档");
+      setError("请至少选择一个可提问文档。");
       return false;
     }
     if (isAskingRef.current) return false;
@@ -136,10 +136,10 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
       if (!response.answer.trim()) {
         updateMessage(conversationId, userMessageId, (message) => ({
           ...message,
-          error: "后端返回空回答",
+          error: "后端返回空回答。",
           status: "failed",
         }));
-        setError("后端返回空回答，原问题已恢复到输入框。");
+        setError("后端返回空回答，原问题已保留在对话中。");
         return false;
       }
 
@@ -168,7 +168,7 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
       return true;
     } catch (nextError) {
       const message =
-        nextError instanceof Error ? nextError.message : "问答生成失败";
+        nextError instanceof Error ? nextError.message : "问答生成失败。";
       updateMessage(conversationId, userMessageId, (currentMessage) => ({
         ...currentMessage,
         error: message,
@@ -179,9 +179,9 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
         nextError.status === 409 &&
         nextError.code === "knowledge_base_not_ready"
       ) {
-        setError("请先解析/更新知识库，原问题已恢复到输入框。");
+        setError("请先解析 / 更新知识库，原问题已保留在对话中。");
       } else {
-        setError(`${message}，原问题已恢复到输入框。`);
+        setError(`${message} 原问题已保留在对话中。`);
       }
       return false;
     } finally {

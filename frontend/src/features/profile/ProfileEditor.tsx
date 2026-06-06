@@ -24,15 +24,15 @@ const textFields: Array<{
   label: string;
   multiline?: boolean;
 }> = [
-  { key: "display_name", label: "Display name" },
-  { key: "role", label: "Role" },
-  { key: "education_level", label: "Education level" },
-  { key: "major", label: "Major / subject area" },
-  { key: "preferred_language", label: "Preferred language" },
-  { key: "answer_style", label: "Answer style" },
-  { key: "math_level", label: "Math level" },
-  { key: "coding_level", label: "Coding level" },
-  { key: "citation_preference", label: "Citation preference", multiline: true },
+  { key: "display_name", label: "显示名称" },
+  { key: "role", label: "身份 / 角色" },
+  { key: "education_level", label: "教育阶段" },
+  { key: "major", label: "专业 / 研究方向" },
+  { key: "preferred_language", label: "偏好语言" },
+  { key: "answer_style", label: "回答风格" },
+  { key: "math_level", label: "数学基础" },
+  { key: "coding_level", label: "编程基础" },
+  { key: "citation_preference", label: "引用偏好", multiline: true },
 ];
 
 const depthLevels: Array<{ value: AnswerLevel; label: string }> = [
@@ -98,9 +98,7 @@ export function ProfileEditor() {
       setCustomAgentsText(nextProfile.agents_md || "");
       applyPreview(nextPrompt);
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Profile loading failed.",
-      );
+      setError(nextError instanceof Error ? nextError.message : "画像加载失败。");
     } finally {
       setIsLoading(false);
     }
@@ -132,9 +130,9 @@ export function ProfileEditor() {
       setGoalsText(savedProfile.learning_goals.join("\n"));
       setCustomAgentsText(savedProfile.agents_md || "");
       applyPreview(nextPrompt);
-      setNotice("Profile saved.");
+      setNotice("画像已保存。");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Profile save failed.");
+      setError(nextError instanceof Error ? nextError.message : "画像保存失败。");
     } finally {
       setIsSaving(false);
     }
@@ -161,14 +159,12 @@ export function ProfileEditor() {
       });
       applyPreview(nextPrompt);
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Profile preview failed.",
-      );
+      setError(nextError instanceof Error ? nextError.message : "画像预览失败。");
     }
   }
 
   if (isLoading && !profile) {
-    return <p className="empty-state">Loading profile...</p>;
+    return <p className="empty-state">正在加载画像...</p>;
   }
 
   const selectedDepth = normalizeDepth(form.default_depth);
@@ -182,11 +178,11 @@ export function ProfileEditor() {
       <form className="panel profile-editor" onSubmit={saveProfile}>
         <div className="panel-heading">
           <div>
-            <p className="section-label">User Profile</p>
-            <h2>Learning preferences</h2>
+            <p className="section-label">用户画像</p>
+            <h2>学习偏好</h2>
           </div>
           <Button type="submit" variant="primary" disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? "保存中..." : "保存"}
           </Button>
         </div>
 
@@ -211,8 +207,8 @@ export function ProfileEditor() {
             </label>
           ))}
           <div className="form-field profile-depth-field">
-            <span>Default depth</span>
-            <div className="segmented-control profile-depth-control" aria-label="Default depth">
+            <span>默认回答深度</span>
+            <div className="segmented-control profile-depth-control" aria-label="默认回答深度">
               {depthLevels.map((item) => (
                 <button
                   type="button"
@@ -220,31 +216,29 @@ export function ProfileEditor() {
                   className={selectedDepth === item.value ? "active" : ""}
                   onClick={() => void updateDefaultDepth(item.value)}
                 >
-                  {depthLabel(item.value)}
+                  {item.label}
                 </button>
               ))}
             </div>
           </div>
           <label className="form-field profile-goals-field">
-            <span>Learning goals</span>
+            <span>学习目标</span>
             <textarea
               value={goalsText}
               onChange={(event) => setGoalsText(event.target.value)}
             />
           </label>
           <label className="form-field profile-agents-field">
-            <span>AGENTS.md</span>
+            <span>自定义提示词（AGENTS.md）</span>
             <textarea
               value={displayedAgentsText}
               readOnly={!agentsEditable}
-              onChange={(event) =>
-                setCustomAgentsText(event.target.value)
-              }
+              onChange={(event) => setCustomAgentsText(event.target.value)}
             />
             <small className="field-help">
               {agentsEditable
-                ? "当前为自定义深度，保存后 Chat 的自定义模式会使用这段提示词。"
-                : "当前为内置深度，AGENTS.md 仅用于预览；选择自定义后可编辑。"}
+                ? "当前为自定义深度，保存后问答页的自定义模式会使用这段提示词。"
+                : "当前为内置深度，这里只用于预览；选择自定义后可以编辑。"}
             </small>
           </label>
         </div>
@@ -287,13 +281,6 @@ function normalizeDepth(value: string | null | undefined): AnswerLevel {
     value === "custom"
     ? value
     : "undergraduate";
-}
-
-function depthLabel(value: AnswerLevel) {
-  if (value === "beginner") return "入门";
-  if (value === "expert") return "专家";
-  if (value === "custom") return "自定义";
-  return "本科";
 }
 
 function parseGoals(value: string) {

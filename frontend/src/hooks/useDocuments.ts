@@ -180,6 +180,6 @@ function persistSelectedDocumentId(documentId: string) {
       window.localStorage.removeItem(SELECTED_DOCUMENT_KEY);
     }
   } catch {
-    // Selection persistence is best effort; document loading should continue.
+    // 本地选择记录只是体验优化，失败时不影响文档加载。
   }
 }

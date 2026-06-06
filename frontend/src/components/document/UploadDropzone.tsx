@@ -27,7 +27,7 @@ export function UploadDropzone({ disabled, onUpload }: UploadDropzoneProps) {
       <div>
         <p className="section-label">PDF 教材</p>
         <h2>上传或选择已有文档</h2>
-        <p className="muted">解析和索引都在后端完成，前端只保存当前操作状态。</p>
+        <p className="muted">解析和索引都在后端完成，前端只保留当前操作状态。</p>
       </div>
       <Button
         type="button"

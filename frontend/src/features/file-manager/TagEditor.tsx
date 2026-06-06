@@ -8,10 +8,10 @@ export function TagEditor({ value, onChange }: TagEditorProps) {
 
   return (
     <label className="form-field">
-      <span>Tags</span>
+      <span>标签</span>
       <input
         value={value}
-        placeholder="math, lecture, review"
+        placeholder="数学, 讲义, 复习"
         onChange={(event) => onChange(event.target.value)}
       />
       {tags.length ? (

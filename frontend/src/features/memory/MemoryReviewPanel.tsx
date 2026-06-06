@@ -40,7 +40,7 @@ export function MemoryReviewPanel() {
     try {
       setMemories(await memoryApi.list());
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Memory loading failed.");
+      setError(nextError instanceof Error ? nextError.message : "记忆加载失败。");
     } finally {
       setIsLoading(false);
     }
@@ -52,12 +52,10 @@ export function MemoryReviewPanel() {
     setNotice("");
     try {
       const result = await memoryApi.extract();
-      setNotice(`Created or refreshed ${result.created_count} candidate memories.`);
+      setNotice(`已创建或刷新 ${result.created_count} 条候选记忆。`);
       await loadMemories();
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Memory extraction failed.",
-      );
+      setError(nextError instanceof Error ? nextError.message : "候选记忆提取失败。");
     } finally {
       setIsExtracting(false);
     }
@@ -110,7 +108,7 @@ export function MemoryReviewPanel() {
       await action();
       await loadMemories();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Memory update failed.");
+      setError(nextError instanceof Error ? nextError.message : "记忆更新失败。");
     }
   }
 
@@ -118,8 +116,8 @@ export function MemoryReviewPanel() {
     <section className="panel memory-review-panel">
       <div className="panel-heading">
         <div>
-          <p className="section-label">Learning Memory</p>
-          <h2>Review inferred preferences</h2>
+          <p className="section-label">学习记忆</p>
+          <h2>审核候选记忆</h2>
         </div>
         <Button
           type="button"
@@ -127,13 +125,13 @@ export function MemoryReviewPanel() {
           disabled={isExtracting}
           onClick={() => void extractCandidates()}
         >
-          {isExtracting ? "Extracting..." : "Extract candidates"}
+          {isExtracting ? "提取中..." : "提取候选"}
         </Button>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
       {notice ? <p className="chat-status">{notice}</p> : null}
-      {isLoading ? <p className="empty-state">Loading memory...</p> : null}
+      {isLoading ? <p className="empty-state">正在加载记忆...</p> : null}
 
       <div className="memory-groups">
         {grouped.map((group) => (
@@ -143,7 +141,7 @@ export function MemoryReviewPanel() {
               <span>{group.memories.length}</span>
             </div>
             {group.memories.length === 0 ? (
-              <p className="empty-state">No {group.status} memories.</p>
+              <p className="empty-state">暂无{labelForStatus(group.status)}记忆。</p>
             ) : (
               <div className="memory-list">
                 {group.memories.map((memory) => (
@@ -205,7 +203,7 @@ function MemoryItem({
             />
             <div className="memory-scope-row">
               <label>
-                <span>Scope</span>
+                <span>范围</span>
                 <select
                   value={draft?.scope_type ?? memory.scope_type}
                   onChange={(event) =>
@@ -216,13 +214,13 @@ function MemoryItem({
                 >
                   {scopeTypes.map((scopeType) => (
                     <option key={scopeType} value={scopeType}>
-                      {scopeType}
+                      {scopeLabel(scopeType)}
                     </option>
                   ))}
                 </select>
               </label>
               <label>
-                <span>Scope id</span>
+                <span>范围 ID</span>
                 <input
                   value={draft?.scope_id ?? memory.scope_id ?? ""}
                   disabled={(draft?.scope_type ?? memory.scope_type) === "global"}
@@ -236,15 +234,15 @@ function MemoryItem({
         )}
       </div>
       <dl className="memory-meta">
-        <MetaItem label="Type" value={memory.memory_type} />
-        <MetaItem label="Confidence" value={`${Math.round(memory.confidence * 100)}%`} />
-        <MetaItem label="Scope" value={formatScope(memory)} />
-        <MetaItem label="Auto" value={memory.auto_apply ? "on" : "off"} />
+        <MetaItem label="类型" value={memory.memory_type} />
+        <MetaItem label="置信度" value={`${Math.round(memory.confidence * 100)}%`} />
+        <MetaItem label="范围" value={formatScope(memory)} />
+        <MetaItem label="自动应用" value={memory.auto_apply ? "开" : "关"} />
         {memory.source_conversation_id ? (
-          <MetaItem label="Source" value={memory.source_conversation_id} />
+          <MetaItem label="来源对话" value={memory.source_conversation_id} />
         ) : null}
         {memory.evidence_message_ids.length ? (
-          <MetaItem label="Evidence ids" value={memory.evidence_message_ids.join(", ")} />
+          <MetaItem label="证据消息" value={memory.evidence_message_ids.join(", ")} />
         ) : null}
       </dl>
       {memory.evidence ? <p className="memory-evidence">{memory.evidence}</p> : null}
@@ -252,28 +250,28 @@ function MemoryItem({
         {isEditing ? (
           <>
             <Button type="button" variant="secondary" onClick={onSave}>
-              Save draft
+              保存草稿
             </Button>
             <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
+              取消
             </Button>
           </>
         ) : null}
         {memory.status === "candidate" && !isEditing ? (
           <>
             <Button type="button" variant="secondary" onClick={onEdit}>
-              Edit
+              编辑
             </Button>
             <Button type="button" variant="secondary" onClick={onAccept}>
-              Accept
+              接受
             </Button>
             <Button type="button" variant="ghost" onClick={onDismiss}>
-              Dismiss
+              拒绝
             </Button>
           </>
         ) : null}
         <Button type="button" variant="ghost" onClick={onDelete}>
-          Delete
+          删除
         </Button>
       </div>
     </article>
@@ -290,11 +288,20 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 }
 
 function formatScope(memory: UserMemory) {
-  return memory.scope_id ? `${memory.scope_type}:${memory.scope_id}` : memory.scope_type;
+  return memory.scope_id
+    ? `${scopeLabel(memory.scope_type)}:${memory.scope_id}`
+    : scopeLabel(memory.scope_type);
+}
+
+function scopeLabel(scopeType: UserMemory["scope_type"]) {
+  if (scopeType === "course") return "课程";
+  if (scopeType === "document") return "文档";
+  if (scopeType === "conversation") return "对话";
+  return "全局";
 }
 
 function labelForStatus(status: (typeof statuses)[number]) {
-  if (status === "candidate") return "Candidates";
-  if (status === "active") return "Active";
-  return "Dismissed";
+  if (status === "candidate") return "候选";
+  if (status === "active") return "已启用";
+  return "已拒绝";
 }

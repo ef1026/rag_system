@@ -77,12 +77,12 @@ const retrievalModes: {
   {
     value: "multimodal",
     label: "多模态精读",
-    description: "更慢，会分析图片和公式。",
+    description: "分析图片、公式和表格，适合精读。",
   },
   {
     value: "fast_text",
     label: "快速文本",
-    description: "更快，主要基于文本索引回答。",
+    description: "主要使用文本索引，响应更快。",
   },
 ];
 
@@ -115,10 +115,12 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [question, setQuestion] = useState("");
   const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
+  const [isLevelMenuOpen, setIsLevelMenuOpen] = useState(false);
   const [feedbackState, setFeedbackState] = useState<
     Record<string, { isSaving?: boolean; notice?: string; error?: string }>
   >({});
   const messageListRef = useRef<HTMLDivElement>(null);
+  const levelMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const customPromptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
@@ -164,6 +166,31 @@ export function ChatPanel({
   }, [question]);
 
   useEffect(() => {
+    if (!isLevelMenuOpen) return;
+
+    function closeOnOutsideClick(event: globalThis.MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!levelMenuRef.current?.contains(target)) {
+        setIsLevelMenuOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsLevelMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isLevelMenuOpen]);
+
+  useEffect(() => {
     if (!isCustomPromptOpen) return;
     window.requestAnimationFrame(() => customPromptTextareaRef.current?.focus());
 
@@ -179,6 +206,7 @@ export function ChatPanel({
 
   function selectLevel(nextLevel: AnswerLevel) {
     onLevelChange(nextLevel);
+    setIsLevelMenuOpen(false);
     if (nextLevel === "custom") {
       setIsCustomPromptOpen(true);
     }
@@ -230,15 +258,15 @@ export function ChatPanel({
         ...current,
         [messageId]: {
           notice: createdCount
-            ? `Feedback saved. ${createdCount} memory candidate(s) created.`
-            : "Feedback saved.",
+            ? `反馈已保存，生成 ${createdCount} 条候选记忆。`
+            : "反馈已保存。",
         },
       }));
     } catch (nextError) {
       setFeedbackState((current) => ({
         ...current,
         [messageId]: {
-          error: nextError instanceof Error ? nextError.message : "Feedback failed.",
+          error: nextError instanceof Error ? nextError.message : "反馈失败。",
         },
       }));
     }
@@ -246,86 +274,74 @@ export function ChatPanel({
 
   return (
     <section className="chat-panel">
-      <div className="chat-panel-header">
-        <div className="chat-title-block">
-          <p className="section-label">Chat</p>
-          <h2>知识问答</h2>
-          <div className="chat-document-row">
-            <div className="current-document">
-              <span>已选择 {selectedDocumentIds.length} 个文档：</span>
+      <header className="chat-panel-header">
+        <div className="chat-headline">
+          <div className="chat-title-block">
+            <p className="section-label">问答</p>
+            <h2>知识问答</h2>
+            <div className="chat-context-line">
+              <span>已选择 {selectedDocumentIds.length} 个文档</span>
               <strong title={selectedDocumentNames.join("、") || "未选择文档"}>
                 {currentDocumentLabel || "未选择文档"}
               </strong>
-              <small className="history-note">
+              <small>
                 {conversation
                   ? `当前对话：${conversation.title}`
-                  : "请新建对话后开始提问"}
+                  : "未新建对话时，小测验会尝试使用已保存记忆。"}
               </small>
             </div>
-            <div className="mode-selector">
-              <div className="mode-selector-heading">
-                <span>检索模式</span>
-                <span
-                  className="mode-help"
-                  title="多模态精读：更慢，会分析图片和公式。快速文本：更快，主要基于文本索引回答。"
-                  aria-label="检索模式说明"
-                >
-                  ?
-                </span>
-              </div>
-              <div
-                className="segmented-control retrieval-mode-control"
-                aria-label="检索模式"
-              >
-                {retrievalModes.map((item) => (
-                  <button
-                    type="button"
-                    key={item.value}
-                    className={item.value === chatMode ? "active" : ""}
-                    disabled={!conversation}
-                    onClick={() => onChatModeChange(item.value)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mode-description">{selectedRetrievalMode.description}</p>
-              <div className="retrieval-runtime">
-                <span>{ragRetrievalStatus?.default_mode || "hybrid"} retrieval</span>
-                <span>
-                  Rerank {ragRetrievalStatus?.rerank_enabled ? "enabled" : "disabled"}
-                </span>
-                {ragRetrievalStatus?.rerank_model ? (
-                  <span title={ragRetrievalStatus.rerank_provider || undefined}>
-                    {ragRetrievalStatus.rerank_model}
-                  </span>
-                ) : null}
-              </div>
-            </div>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="history-clear-button"
+            disabled={!conversation || messages.length === 0}
+            onClick={onClearHistory}
+          >
+            清空对话
+          </Button>
         </div>
 
-        <div className="chat-controls">
-          <div className="answer-depth-control">
-            <div className="answer-depth-heading">
+        <div className="chat-control-bar">
+          <section className="tool-card answer-depth-control">
+            <div className="tool-card-heading">
               <span className="control-label">回答深度</span>
-              <span className="depth-current">{depthLabel(selectedLevel.value)}</span>
+              <span className="depth-current">{selectedLevel.label}</span>
             </div>
-            <div
-              className="segmented-control answer-depth-segmented"
-              aria-label="回答深度"
-            >
-              {levels.map((item) => (
-                <button
-                  type="button"
-                  key={item.value}
-                  className={item.value === level ? "active" : ""}
-                  disabled={!conversation}
-                  onClick={() => selectLevel(item.value)}
-                >
-                  {depthLabel(item.value)}
-                </button>
-              ))}
+            <div className="answer-depth-dropdown" ref={levelMenuRef}>
+              <button
+                type="button"
+                className="answer-depth-button"
+                disabled={!conversation}
+                aria-haspopup="menu"
+                aria-expanded={isLevelMenuOpen}
+                onClick={() => setIsLevelMenuOpen((current) => !current)}
+              >
+                <span>
+                  <small>当前深度</small>
+                  <strong>{selectedLevel.label}</strong>
+                </span>
+                <span className="answer-depth-chevron" aria-hidden="true">
+                  ∨
+                </span>
+              </button>
+              {isLevelMenuOpen ? (
+                <div className="answer-depth-menu" role="menu">
+                  {levels.map((item) => (
+                    <button
+                      type="button"
+                      key={item.value}
+                      className={item.value === level ? "active" : ""}
+                      role="menuitemradio"
+                      aria-checked={item.value === level}
+                      onClick={() => selectLevel(item.value)}
+                    >
+                      <span>{item.label}</span>
+                      {item.value === level ? <strong>已选择</strong> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             {level === "custom" ? (
               <Button
@@ -335,30 +351,48 @@ export function ChatPanel({
                 disabled={!conversation}
                 onClick={() => setIsCustomPromptOpen(true)}
               >
-                编辑 AGENTS.md
+                编辑提示词
               </Button>
             ) : null}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            className="history-clear-button"
-            disabled={!conversation || messages.length === 0}
-            onClick={onClearHistory}
-          >
-            清空当前对话
-          </Button>
-          <div className="personalization-controls">
-            <div className="personalization-heading">
+          </section>
+
+          <section className="tool-card mode-selector">
+            <div className="tool-card-heading">
+              <span className="control-label">检索模式</span>
+              <span className="mode-description">{selectedRetrievalMode.description}</span>
+            </div>
+            <div
+              className="segmented-control retrieval-mode-control"
+              aria-label="检索模式"
+            >
+              {retrievalModes.map((item) => (
+                <button
+                  type="button"
+                  key={item.value}
+                  className={item.value === chatMode ? "active" : ""}
+                  disabled={!conversation}
+                  onClick={() => onChatModeChange(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="retrieval-runtime">
+              <span>{runtimeModeLabel(ragRetrievalStatus?.default_mode)}</span>
+              <span>重排{ragRetrievalStatus?.rerank_enabled ? "已启用" : "未启用"}</span>
+              {ragRetrievalStatus?.rerank_model ? (
+                <span title={ragRetrievalStatus.rerank_provider || undefined}>
+                  {ragRetrievalStatus.rerank_model}
+                </span>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="tool-card personalization-controls">
+            <div className="tool-card-heading">
               <span className="control-label">个性化</span>
               <span className="personalization-state">
-                {useProfile && useMemory
-                  ? "Profile + Memory"
-                  : useProfile
-                    ? "Profile"
-                    : useMemory
-                      ? "Memory"
-                      : "Off"}
+                {personalizationStateLabel(useProfile, useMemory)}
               </span>
             </div>
             <div className="personalization-toggle-grid">
@@ -371,7 +405,7 @@ export function ChatPanel({
               >
                 <span className="toggle-indicator" />
                 <span>
-                  <strong>Profile</strong>
+                  <strong>画像</strong>
                   <small>显式偏好</small>
                 </span>
               </button>
@@ -384,19 +418,19 @@ export function ChatPanel({
               >
                 <span className="toggle-indicator" />
                 <span>
-                  <strong>Memory</strong>
-                  <small>审核记忆</small>
+                  <strong>记忆</strong>
+                  <small>审核后应用</small>
                 </span>
               </button>
             </div>
-          </div>
+          </section>
         </div>
-      </div>
+      </header>
 
       <div className="message-list" ref={messageListRef}>
-        {!conversation ? <p className="empty-state">请新建对话</p> : null}
+        {!conversation ? <p className="empty-state">请先新建对话。</p> : null}
         {conversation && messages.length === 0 ? (
-          <p className="empty-state">当前会话还没有消息。</p>
+          <p className="empty-state">当前对话还没有消息。</p>
         ) : null}
         {conversation && isWarmingUp ? (
           <p className="chat-status">正在预热知识库...</p>
@@ -453,8 +487,8 @@ export function ChatPanel({
           >
             <div className="custom-agents-dialog-header">
               <div>
-                <p className="section-label">Custom Prompt</p>
-                <h3 id="custom-agents-title">自定义 AGENTS.md</h3>
+                <p className="section-label">自定义</p>
+                <h3 id="custom-agents-title">自定义提示词</h3>
               </div>
               <button
                 type="button"
@@ -466,7 +500,7 @@ export function ChatPanel({
               </button>
             </div>
             <p className="custom-agents-dialog-description">
-              这段提示词只在回答深度选择“自定义”时生效。用于约束回答难度、出题格式、讲解风格和评分要求。
+              这段提示词只在回答深度选择“自定义”时生效，用于约束回答难度、讲解风格和输出格式。
             </p>
             <textarea
               ref={customPromptTextareaRef}
@@ -514,18 +548,11 @@ function getAskDisabledReason({
   isProcessing?: boolean;
   boundDocumentIssue?: string;
 }) {
-  if (!hasConversation) return "请新建对话";
+  if (!hasConversation) return "请先新建对话。";
   if (boundDocumentIssue) return boundDocumentIssue;
-  if (!selectedDocumentIds.length) return "请至少选择一个可提问文档";
-  if (isProcessing) return "当前文档正在索引";
+  if (!selectedDocumentIds.length) return "请至少选择一个可提问文档。";
+  if (isProcessing) return "当前文档正在索引。";
   return "";
-}
-
-function depthLabel(value: AnswerLevel) {
-  if (value === "beginner") return "入门";
-  if (value === "expert") return "专家";
-  if (value === "custom") return "自定义";
-  return "本科";
 }
 
 function getPlaceholder({
@@ -539,10 +566,10 @@ function getPlaceholder({
   isProcessing?: boolean;
   boundDocumentIssue?: string;
 }) {
-  if (!hasConversation) return "请新建对话";
+  if (!hasConversation) return "请先新建对话。";
   if (boundDocumentIssue) return boundDocumentIssue;
-  if (!selectedDocumentIds.length) return "请至少选择一个可提问文档";
-  if (isProcessing) return "当前文档正在索引";
+  if (!selectedDocumentIds.length) return "请至少选择一个可提问文档。";
+  if (isProcessing) return "当前文档正在索引。";
   if (selectedDocumentIds.length > 1) {
     return `正在基于 ${selectedDocumentIds.length} 个文档提问...`;
   }
@@ -555,6 +582,22 @@ function getSelectedDocumentsLabel(documentNames: string[]) {
   return documentNames.length > 2
     ? `${visibleNames} 等 ${documentNames.length} 个文档`
     : visibleNames;
+}
+
+function runtimeModeLabel(mode?: string | null) {
+  if (!mode) return "混合检索";
+  if (mode === "hybrid") return "混合检索";
+  if (mode === "local") return "局部检索";
+  if (mode === "global") return "全局检索";
+  if (mode === "naive") return "朴素检索";
+  return mode;
+}
+
+function personalizationStateLabel(useProfile: boolean, useMemory: boolean) {
+  if (useProfile && useMemory) return "画像 + 记忆";
+  if (useProfile) return "仅画像";
+  if (useMemory) return "仅记忆";
+  return "关闭";
 }
 
 function resizeQuestionInput(textarea: HTMLTextAreaElement | null) {
@@ -748,7 +791,8 @@ function insertImageRefsIntoContent(content: string, imageIds: string[]) {
   imageIds.forEach((imageId, index) => {
     let position = preferredPositions[index] ?? anchorIndices[anchorIndices.length - 1];
     if (usedPositions.has(position)) {
-      position = anchorIndices.find((candidate) => !usedPositions.has(candidate)) ?? position;
+      position =
+        anchorIndices.find((candidate) => !usedPositions.has(candidate)) ?? position;
     }
     usedPositions.add(position);
     insertions.set(position, [

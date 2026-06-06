@@ -52,8 +52,8 @@ export function FolderTree({
     <aside className="panel library-sidebar">
       <div className="panel-heading">
         <div>
-          <p className="section-label">Folders</p>
-          <h2>Library</h2>
+          <p className="section-label">文件夹</p>
+          <h2>资料库</h2>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export function FolderTree({
         className={`folder-row ${selectedFolderId ? "" : "selected"}`}
         onClick={() => onSelectFolder("")}
       >
-        All files
+        全部文件
       </button>
 
       <div className="folder-list">
@@ -81,11 +81,11 @@ export function FolderTree({
       <form className="folder-form" onSubmit={createFolder}>
         <input
           value={newFolderName}
-          placeholder="New folder"
+          placeholder="新文件夹"
           onChange={(event) => setNewFolderName(event.target.value)}
         />
         <Button type="submit" variant="secondary" disabled={isBusy}>
-          Add
+          添加
         </Button>
       </form>
 
@@ -97,7 +97,7 @@ export function FolderTree({
               onChange={(event) => setRenameValue(event.target.value)}
             />
             <Button type="submit" variant="secondary" disabled={isBusy}>
-              Rename
+              重命名
             </Button>
           </form>
           <Button
@@ -106,7 +106,7 @@ export function FolderTree({
             disabled={isBusy}
             onClick={() => onDeleteFolder(selectedFolder.id)}
           >
-            Delete empty
+            删除空文件夹
           </Button>
         </div>
       ) : null}

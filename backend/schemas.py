@@ -471,6 +471,75 @@ class ProfileFeedbackResponse(BaseModel):
     created_memory_candidates: list[UserMemory] = Field(default_factory=list)
 
 
+class QuizChoice(BaseModel):
+    id: str
+    text: str
+
+
+class QuizQuestion(BaseModel):
+    id: str
+    prompt: str
+    choices: list[QuizChoice] = Field(default_factory=list)
+    correct_choice_id: str
+    explanation: str
+    source_message_ids: list[str] = Field(default_factory=list)
+
+
+class QuizSession(BaseModel):
+    id: str
+    profile_id: str
+    conversation_id: str
+    title: str
+    questions: list[QuizQuestion] = Field(default_factory=list)
+    created_at: str
+
+
+class QuizGenerateRequest(BaseModel):
+    conversation_id: str | None = Field(default=None, min_length=1)
+    document_ids: list[str] = Field(default_factory=list)
+    count: int = 3
+
+
+class QuizSubmitAnswer(BaseModel):
+    question_id: str = Field(min_length=1)
+    selected_choice_id: str = Field(min_length=1)
+
+
+class QuizSubmitRequest(BaseModel):
+    answers: list[QuizSubmitAnswer] = Field(default_factory=list)
+
+
+class QuizQuestionResult(BaseModel):
+    question: QuizQuestion
+    selected_choice_id: str | None = None
+    is_correct: bool
+    correct_choice_id: str
+    explanation: str
+
+
+class QuizSubmitResponse(BaseModel):
+    session_id: str
+    correct_count: int
+    total_count: int
+    results: list[QuizQuestionResult] = Field(default_factory=list)
+
+
+class WrongQuestion(BaseModel):
+    id: str
+    profile_id: str
+    quiz_session_id: str
+    conversation_id: str
+    question_id: str
+    prompt: str
+    choices: list[QuizChoice] = Field(default_factory=list)
+    selected_choice_id: str
+    correct_choice_id: str
+    explanation: str
+    source_message_ids: list[str] = Field(default_factory=list)
+    created_at: str
+    reviewed_at: str | None = None
+
+
 for _model in (ProfilePromptContextResponse, PersonalizationPreviewResponse):
     if hasattr(_model, "model_rebuild"):
         _model.model_rebuild()

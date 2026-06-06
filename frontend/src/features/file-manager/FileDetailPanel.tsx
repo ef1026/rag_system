@@ -80,7 +80,7 @@ export function FileDetailPanel({
   if (!file) {
     return (
       <aside className="panel library-detail">
-        <p className="empty-state">Select a managed file to edit metadata.</p>
+        <p className="empty-state">选择一个托管文件后编辑元数据。</p>
       </aside>
     );
   }
@@ -89,14 +89,14 @@ export function FileDetailPanel({
     <aside className="panel library-detail">
       <div className="panel-heading">
         <div>
-          <p className="section-label">File Details</p>
-          <h2>Edit metadata</h2>
+          <p className="section-label">文件详情</p>
+          <h2>编辑元数据</h2>
         </div>
       </div>
 
       <form className="detail-form" onSubmit={save}>
         <label className="form-field">
-          <span>Display name</span>
+          <span>显示名称</span>
           <input
             value={form.displayName}
             onChange={(event) =>
@@ -106,14 +106,14 @@ export function FileDetailPanel({
         </label>
 
         <label className="form-field">
-          <span>Folder</span>
+          <span>文件夹</span>
           <select
             value={form.folderId}
             onChange={(event) =>
               setForm((current) => ({ ...current, folderId: event.target.value }))
             }
           >
-            <option value="">No folder</option>
+            <option value="">不放入文件夹</option>
             {folders.map((folder) => (
               <option value={folder.id} key={folder.id}>
                 {folder.name}
@@ -123,7 +123,7 @@ export function FileDetailPanel({
         </label>
 
         <label className="form-field">
-          <span>Course / subject</span>
+          <span>课程 / 主题</span>
           <input
             value={form.course}
             onChange={(event) =>
@@ -138,7 +138,7 @@ export function FileDetailPanel({
         />
 
         <label className="form-field">
-          <span>Description</span>
+          <span>描述</span>
           <textarea
             value={form.description}
             onChange={(event) =>
@@ -151,7 +151,7 @@ export function FileDetailPanel({
         </label>
 
         <label className="form-field">
-          <span>Notes</span>
+          <span>备注</span>
           <textarea
             value={form.notes}
             onChange={(event) =>
@@ -172,7 +172,7 @@ export function FileDetailPanel({
                 }))
               }
             />
-            Pinned
+            置顶
           </label>
           <label>
             <input
@@ -185,13 +185,13 @@ export function FileDetailPanel({
                 }))
               }
             />
-            Archived
+            归档
           </label>
         </div>
 
         <div className="detail-actions">
           <Button type="submit" variant="primary" disabled={isBusy}>
-            Save file
+            保存文件
           </Button>
           <Button
             type="button"
@@ -199,7 +199,7 @@ export function FileDetailPanel({
             disabled={isBusy}
             onClick={() => onDelete(file.id)}
           >
-            Delete metadata
+            删除元数据
           </Button>
         </div>
       </form>

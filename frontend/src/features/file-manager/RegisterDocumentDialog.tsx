@@ -86,20 +86,20 @@ export function RegisterDocumentDialog({
       <section className="panel register-dialog" role="dialog" aria-modal="true">
         <div className="panel-heading">
           <div>
-            <p className="section-label">Register Document</p>
-            <h2>Existing RAG document</h2>
+            <p className="section-label">登记文档</p>
+            <h2>已有 RAG 文档</h2>
           </div>
           <Button type="button" variant="ghost" onClick={onClose}>
-            Close
+            关闭
           </Button>
         </div>
 
         {!unregisteredDocuments.length ? (
-          <p className="empty-state">All current documents are registered.</p>
+          <p className="empty-state">当前所有文档都已登记。</p>
         ) : (
           <form className="register-form" onSubmit={registerDocument}>
             <label className="form-field">
-              <span>Document</span>
+              <span>文档</span>
               <select
                 value={selectedDocumentId}
                 onChange={(event) => selectDocument(event.target.value)}
@@ -113,7 +113,7 @@ export function RegisterDocumentDialog({
             </label>
 
             <label className="form-field">
-              <span>Display name</span>
+              <span>显示名称</span>
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
@@ -121,12 +121,12 @@ export function RegisterDocumentDialog({
             </label>
 
             <label className="form-field">
-              <span>Folder</span>
+              <span>文件夹</span>
               <select
                 value={folderId}
                 onChange={(event) => setFolderId(event.target.value)}
               >
-                <option value="">No folder</option>
+                <option value="">不放入文件夹</option>
                 {folders.map((folder) => (
                   <option value={folder.id} key={folder.id}>
                     {folder.name}
@@ -136,7 +136,7 @@ export function RegisterDocumentDialog({
             </label>
 
             <label className="form-field">
-              <span>Course / subject</span>
+              <span>课程 / 主题</span>
               <input
                 value={course}
                 onChange={(event) => setCourse(event.target.value)}
@@ -146,7 +146,7 @@ export function RegisterDocumentDialog({
             <TagEditor value={tagsText} onChange={setTagsText} />
 
             <label className="form-field">
-              <span>Description</span>
+              <span>描述</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
@@ -154,12 +154,12 @@ export function RegisterDocumentDialog({
             </label>
 
             <label className="form-field">
-              <span>Notes</span>
+              <span>备注</span>
               <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
             </label>
 
             <Button type="submit" variant="primary" disabled={isBusy || !selectedDocument}>
-              Register
+              登记
             </Button>
           </form>
         )}

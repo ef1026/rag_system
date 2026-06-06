@@ -60,7 +60,7 @@ export function FileLibraryPage() {
       const nextFiles = await fileManagerApi.files(filters);
       setFiles(nextFiles);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "File loading failed.");
+      setError(nextError instanceof Error ? nextError.message : "文件加载失败。");
     } finally {
       setIsFilesLoading(false);
     }
@@ -80,9 +80,7 @@ export function FileLibraryPage() {
       setDocuments(nextDocuments);
       setAllFiles(nextAllFiles);
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Library metadata failed.",
-      );
+      setError(nextError instanceof Error ? nextError.message : "资料库元数据加载失败。");
     }
   }, []);
 
@@ -132,7 +130,7 @@ export function FileLibraryPage() {
       await reloadLibrary();
       setNotice(successMessage);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Library action failed.");
+      setError(nextError instanceof Error ? nextError.message : "资料库操作失败。");
     } finally {
       setIsBusy(false);
     }
@@ -157,19 +155,19 @@ export function FileLibraryPage() {
         onCreateFolder={(name) =>
           runLibraryAction(
             () => fileManagerApi.createFolder({ name }).then(() => undefined),
-            "Folder created.",
+            "文件夹已创建。",
           )
         }
         onRenameFolder={(folderId, name) =>
           runLibraryAction(
             () => fileManagerApi.updateFolder(folderId, { name }).then(() => undefined),
-            "Folder renamed.",
+            "文件夹已重命名。",
           )
         }
         onDeleteFolder={(folderId) =>
           runLibraryAction(
             () => fileManagerApi.deleteFolder(folderId).then(() => undefined),
-            "Folder deleted.",
+            "文件夹已删除。",
           )
         }
       />
@@ -177,8 +175,8 @@ export function FileLibraryPage() {
       <main className="panel library-main">
         <div className="panel-heading library-main-heading">
           <div>
-            <p className="section-label">Files</p>
-            <h2>Managed documents</h2>
+            <p className="section-label">文件</p>
+            <h2>托管文档</h2>
           </div>
           <div className="library-actions">
             <Button
@@ -188,11 +186,11 @@ export function FileLibraryPage() {
               onClick={() =>
                 runLibraryAction(
                   () => fileManagerApi.syncExistingDocuments().then(() => undefined),
-                  "Existing documents synchronized.",
+                  "已有文档已同步。",
                 )
               }
             >
-              Sync documents
+              同步文档
             </Button>
             <Button
               type="button"
@@ -200,7 +198,7 @@ export function FileLibraryPage() {
               disabled={isBusy}
               onClick={() => setIsRegisterOpen(true)}
             >
-              Register
+              登记
             </Button>
           </div>
         </div>
@@ -210,17 +208,17 @@ export function FileLibraryPage() {
 
         <div className="library-filters">
           <label className="form-field">
-            <span>Search</span>
+            <span>搜索</span>
             <input
               value={query}
-              placeholder="Name, note, tag"
+              placeholder="名称、备注、标签"
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
           <label className="form-field">
-            <span>Tag</span>
+            <span>标签</span>
             <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
-              <option value="">All tags</option>
+              <option value="">全部标签</option>
               {tags.map((tag) => (
                 <option value={tag.name} key={tag.name}>
                   {tag.name} ({tag.count})
@@ -229,12 +227,12 @@ export function FileLibraryPage() {
             </select>
           </label>
           <label className="form-field">
-            <span>Course</span>
+            <span>课程</span>
             <select
               value={courseFilter}
               onChange={(event) => setCourseFilter(event.target.value)}
             >
-              <option value="">All courses</option>
+              <option value="">全部课程</option>
               {courseOptions.map((course) => (
                 <option value={course} key={course}>
                   {course}
@@ -243,31 +241,31 @@ export function FileLibraryPage() {
             </select>
           </label>
           <label className="form-field">
-            <span>Archive</span>
+            <span>归档</span>
             <select
               value={archiveFilter}
               onChange={(event) =>
                 setArchiveFilter(event.target.value as ArchiveFilter)
               }
             >
-              <option value="active">Active</option>
-              <option value="all">All</option>
-              <option value="archived">Archived</option>
+              <option value="active">未归档</option>
+              <option value="all">全部</option>
+              <option value="archived">已归档</option>
             </select>
           </label>
           <label className="form-field">
-            <span>Pinned</span>
+            <span>置顶</span>
             <select
               value={pinFilter}
               onChange={(event) => setPinFilter(event.target.value as PinFilter)}
             >
-              <option value="all">All</option>
-              <option value="pinned">Pinned</option>
-              <option value="unpinned">Unpinned</option>
+              <option value="all">全部</option>
+              <option value="pinned">已置顶</option>
+              <option value="unpinned">未置顶</option>
             </select>
           </label>
           <Button type="button" variant="ghost" onClick={clearFilters}>
-            Clear
+            清除筛选
           </Button>
         </div>
 
@@ -287,7 +285,7 @@ export function FileLibraryPage() {
         onSave={(fileId: string, payload: ManagedFilePatch) =>
           runLibraryAction(
             () => fileManagerApi.updateFile(fileId, payload).then(() => undefined),
-            "File metadata saved.",
+            "文件元数据已保存。",
           )
         }
         onDelete={(fileId: string) =>
@@ -296,7 +294,7 @@ export function FileLibraryPage() {
               await fileManagerApi.deleteFile(fileId);
               setSelectedFileId("");
             },
-            "File metadata deleted.",
+            "文件元数据已删除。",
           )
         }
       />
@@ -314,7 +312,7 @@ export function FileLibraryPage() {
               await fileManagerApi.register(payload);
               setIsRegisterOpen(false);
             },
-            "Document registered.",
+            "文档已登记。",
           )
         }
       />

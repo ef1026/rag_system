@@ -31,7 +31,7 @@ export function ConversationHistoryPanel({
     <>
       <div className="panel-heading conversation-heading">
         <div>
-          <p className="section-label">Conversations</p>
+          <p className="section-label">对话</p>
           <h2>对话记录</h2>
         </div>
         <Button type="button" variant="primary" onClick={onCreate}>
