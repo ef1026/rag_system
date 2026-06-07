@@ -22,6 +22,7 @@ import type { DocumentSummary, SourceItem } from "@/types/document";
 type CitationTarget = {
   documentId: string;
   page: number | null;
+  pageEnd: number | null;
   sourceId: string;
 };
 
@@ -187,6 +188,7 @@ export default function Home() {
     setCitationTarget({
       documentId: source.document_id,
       page: typeof source.page === "number" ? source.page : null,
+      pageEnd: typeof source.page_end === "number" ? source.page_end : null,
       sourceId: source.id,
     });
     const documentExists = documents.documents.some(
@@ -370,8 +372,18 @@ export default function Home() {
 }
 
 function citationTargetLabel(target: CitationTarget) {
-  const page = target.page !== null ? ` · 第 ${target.page} 页` : "";
+  const page =
+    target.page !== null
+      ? pageRangeLabel(target.page, target.pageEnd)
+      : "";
   return `已选中引用文档${page}`;
+}
+
+function pageRangeLabel(page: number, pageEnd: number | null) {
+  if (pageEnd !== null && pageEnd > page) {
+    return ` · 第 ${page}-${pageEnd} 页`;
+  }
+  return ` · 第 ${page} 页`;
 }
 
 function getBoundDocumentIssue(

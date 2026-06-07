@@ -40,7 +40,7 @@ from backend.rag.storage import (
     write_process_failure,
 )
 from backend.schemas import ProcessResponse
-from backend.services.citation_service import build_or_load_source_map
+from backend.services.citation_service import build_source_map
 from backend.services.document_service import (
     knowledge_base_not_ready_response,
     summarize_document,
@@ -647,7 +647,7 @@ async def process_document(document_id: str) -> ProcessResponse | JSONResponse:
 
             await persist_lightrag_storages(rag)
             try:
-                build_or_load_source_map(normalized_document_id)
+                build_source_map(normalized_document_id)
             except Exception as exc:
                 logger.warning(
                     "Source map generation failed after processing document_id=%s safe_document_key=%s error=%s",

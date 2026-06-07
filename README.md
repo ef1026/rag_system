@@ -195,13 +195,21 @@ The current FastAPI pipeline is:
 - Retrieval mode: `/api/chat` defaults to `hybrid`; the frontend currently sends `mode: "hybrid"`. Chat requires `document_id` and loads only that document's scoped storage.
 - VLM enhanced query: enabled automatically when `ENABLE_MULTIMODAL=true`, image processing is enabled, and a vision model function is available. If no valid images are found in retrieved context, RAG-Anything falls back to normal text query.
 - Rerank: controlled by `ENABLE_RERANK`, `RERANK_BINDING`, `RERANK_MODEL`, `RERANK_BINDING_API_KEY`, optional `RERANK_BASE_URL`, and optional `RERANK_TOP_N`. Default is disabled. If rerank is requested but model/provider/key initialization is unavailable, chat automatically passes `enable_rerank=false` and continues without rerank.
-- Sources/citations: document preview sources are extracted from MinerU `content_list`. Chat responses now return retrieval evidence in `sources`, including document id/name, chunk id, rank, page metadata when it can be mapped from `source_map.v1.json`, and match metadata. These are retrieval evidence pool citations, not claim-level citations. If LightRAG raw retrieval chunks are unavailable, the backend may return `storage_fallback` source items from document chunks; those are explicitly marked as fallback snippets rather than retrieval-ranked evidence.
+- Sources/citations: document preview sources are extracted from MinerU `content_list`. Chat responses now return retrieval evidence in `sources`, including document id/name, chunk id, rank, page metadata when it can be mapped from `source_map.v1.json`, and match metadata. These are retrieval evidence pool citations, not claim-level citations. If LightRAG raw retrieval chunks are unavailable, the backend may return `storage_fallback` source items from document chunks; those are explicitly marked as fallback snippets rather than retrieval-ranked evidence. `source_map.v1.json` is rebuilt after successful document processing and is lazily generated on chat for older processed documents that do not have it yet.
 
 Document-scoped retrieval:
 
 - New processing runs no longer use the legacy global `rag_storage/` index for chat retrieval.
 - Existing documents parsed before document-scoped storage must be processed again so their indexes are created under `rag_storage/documents/<safe-document-key>/`.
 - The backend does not migrate or fall back to legacy global indexes; if a selected document has no scoped storage, `/api/chat` returns knowledge-base-not-ready.
+
+Citation validation checklist:
+
+- Single-document chat should return non-empty `sources` with `document_id`, `chunk_id`, `rank`, `text`, and `citation_mode`.
+- When content can be mapped, sources should include `page`; chunks spanning pages should include `page_end`.
+- Multi-document chat should keep source `document_id` values distinct and should not map pages from one document onto another.
+- Conversation history refresh should restore `sources_json` with source metadata intact.
+- If retrieval raw chunks are unavailable, sources should show `citation_mode: "storage_fallback"` and `score_type: "storage_fallback"` rather than retrieval-ranked evidence.
 
 Development status endpoint:
 

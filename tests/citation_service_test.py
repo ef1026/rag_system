@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from backend.schemas import SourceItem
 from backend.services import citation_service as citations
 
@@ -35,6 +37,29 @@ def test_substring_match_maps_chunk_to_page_range() -> None:
     assert mapping["match_method"] == "substring"
 
 
+def test_long_substring_match_uses_full_span_for_page_range() -> None:
+    first = "alpha " * 90
+    second = "beta " * 90
+    third = "gamma " * 90
+    entries = [
+        _entry(0, first, 1),
+        _entry(1, second, 2),
+        _entry(2, third, 3),
+    ]
+    index = citations.build_content_index(entries)
+
+    mapping = citations.match_chunk_to_content(
+        "sample.pdf",
+        "chunk-long",
+        f"{first}\n\n{second}\n\n{third}",
+        index,
+    )
+
+    assert mapping["page"] == 1
+    assert mapping["page_end"] == 3
+    assert mapping["match_method"] == "substring"
+
+
 def test_image_path_metadata_match_maps_to_image_page() -> None:
     entry = _entry(0, "figure caption", 3, "image")
     entry["image_keys"] = citations.image_keys("images/figure-a.png")
@@ -49,6 +74,45 @@ def test_image_path_metadata_match_maps_to_image_page() -> None:
 
     assert mapping["page"] == 3
     assert mapping["type"] == "image"
+    assert mapping["match_method"] == "metadata"
+
+
+def test_content_entries_keep_image_without_caption(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        citations,
+        "document_path",
+        lambda _document_id: tmp_path / "sample.pdf",
+    )
+    monkeypatch.setattr(
+        citations,
+        "content_list_path",
+        lambda _pdf_path: tmp_path / "sample_content_list.json",
+    )
+    monkeypatch.setattr(
+        citations,
+        "load_content_list",
+        lambda _path: [
+            {
+                "type": "image",
+                "img_path": "images/figure-a.png",
+                "page_idx": 4,
+            }
+        ],
+    )
+
+    entries = citations.content_entries_for_document("sample.pdf")
+    index = citations.build_content_index(entries)
+    mapping = citations.match_chunk_to_content(
+        "sample.pdf",
+        "chunk-image",
+        "Image Content Analysis:\nImage Path: C:\\tmp\\figure-a.png",
+        index,
+    )
+
+    assert len(entries) == 1
+    assert entries[0]["type"] == "image"
+    assert entries[0]["page"] == 5
+    assert mapping["page"] == 5
     assert mapping["match_method"] == "metadata"
 
 
@@ -74,6 +138,48 @@ def test_build_source_map_writes_final_file_atomically(tmp_path, monkeypatch) ->
     assert payload["chunks"]["chunk-alpha"]["page"] == 1
     assert (tmp_path / citations.SOURCE_MAP_FILENAME).exists()
     assert not (tmp_path / citations.SOURCE_MAP_TMP_FILENAME).exists()
+
+
+def test_build_source_map_overwrites_stale_cached_map(tmp_path, monkeypatch) -> None:
+    stale_payload = {
+        "version": citations.SOURCE_MAP_VERSION,
+        "chunks": {
+            "chunk-alpha": {
+                "page": 99,
+                "text": "stale",
+            }
+        },
+    }
+    (tmp_path / citations.SOURCE_MAP_FILENAME).write_text(
+        json.dumps(stale_payload),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(citations, "document_storage_dir", lambda _document_id: tmp_path)
+    monkeypatch.setattr(
+        citations,
+        "content_entries_for_document",
+        lambda _document_id: [_entry(0, "fresh content", 2)],
+    )
+    monkeypatch.setattr(
+        citations,
+        "read_json_dict",
+        lambda _path: {
+            "chunk-alpha": {
+                "_id": "chunk-alpha",
+                "content": "fresh content",
+                "file_path": "sample.pdf",
+            }
+        },
+    )
+
+    payload = citations.build_source_map("sample.pdf")
+    persisted = json.loads(
+        (tmp_path / citations.SOURCE_MAP_FILENAME).read_text(encoding="utf-8")
+    )
+
+    assert payload["chunks"]["chunk-alpha"]["page"] == 2
+    assert persisted["chunks"]["chunk-alpha"]["page"] == 2
 
 
 def test_map_retrieved_chunks_falls_back_when_source_map_fails(monkeypatch) -> None:
@@ -153,4 +259,6 @@ def test_chunks_from_raw_data_accepts_supported_shapes() -> None:
 
     assert citations.chunks_from_raw_data({"data": {"chunks": [chunk]}}) == [chunk]
     assert citations.chunks_from_raw_data({"chunks": [chunk]}) == [chunk]
+    assert citations.chunks_from_raw_data({"data": [chunk]}) == [chunk]
     assert citations.chunks_from_raw_data([chunk]) == [chunk]
+    assert citations.chunks_from_raw_data({"data": {"chunks": ["bad"]}}) == []

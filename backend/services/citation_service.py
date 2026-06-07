@@ -128,6 +128,9 @@ def content_entries_for_document(document_id: str) -> list[dict[str, Any]]:
     for index, item in enumerate(items):
         item_type = str(item.get("type") or "text")
         text = content_item_text(item)
+        image_path = item.get("img_path")
+        if not text and isinstance(image_path, str) and image_path.strip():
+            text = image_path.strip()
         if not text:
             continue
         normalized = normalize_text(text)
@@ -141,7 +144,6 @@ def content_entries_for_document(document_id: str) -> list[dict[str, Any]]:
             "normalized": normalized,
             "hash": text_hash(normalized),
         }
-        image_path = item.get("img_path")
         if isinstance(image_path, str) and image_path.strip():
             entry["image_keys"] = image_keys(image_path, content_root)
         entries.append(entry)
@@ -218,16 +220,18 @@ def match_chunk_to_content(
         offset = document_text.find(normalized)
         method = "substring"
         score = 1.0
+        span_length = len(normalized)
         if offset < 0:
             probe = normalized[: min(600, len(normalized))]
             offset = document_text.find(probe) if len(probe) >= 80 else -1
             method = "substring"
             score = 0.85
+            span_length = len(probe)
         if offset >= 0:
             entries = entries_for_span(
                 index.get("spans", []),
                 offset,
-                offset + min(len(normalized), 600),
+                offset + span_length,
             )
             if entries:
                 return mapping_from_entries(
@@ -363,6 +367,8 @@ def chunks_from_raw_data(raw_data: Any) -> list[dict[str, Any]]:
             chunks = data["chunks"]
         elif isinstance(raw_data.get("chunks"), list):
             chunks = raw_data["chunks"]
+        elif isinstance(data, list):
+            chunks = data
         else:
             chunks = []
     else:
@@ -466,6 +472,7 @@ def content_item_text(item: dict[str, Any]) -> str:
         "latex",
         "equation",
         "content",
+        "caption",
         "image_caption",
         "img_caption",
         "table_caption",
