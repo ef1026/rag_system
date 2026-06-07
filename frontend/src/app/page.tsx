@@ -17,7 +17,7 @@ import { api } from "@/lib/api";
 import type { ProfileFeedbackRequest } from "@/features/profile/types";
 import type { ApiHealth, RAGStatusResponse } from "@/types/api";
 import type { AnswerLevel, ChatMode, Conversation } from "@/types/chat";
-import type { DocumentSummary } from "@/types/document";
+import type { DocumentSummary, SourceItem } from "@/types/document";
 
 export default function Home() {
   const documents = useDocuments();
@@ -175,6 +175,16 @@ export default function Home() {
     return response.created_memory_candidates.length;
   }
 
+  function selectCitationSource(source: SourceItem) {
+    if (!source.document_id) return;
+    const documentExists = documents.documents.some(
+      (document) => document.id === source.document_id,
+    );
+    if (documentExists) {
+      documents.setSelectedId(source.document_id);
+    }
+  }
+
   function toggleConversationDocument(document: DocumentSummary, selected: boolean) {
     const conversation = conversations.activeConversation;
     setDocumentSelectionError("");
@@ -321,6 +331,7 @@ export default function Home() {
             }}
             onSaveCustomAgents={saveCustomAgents}
             onMessageFeedback={sendMessageFeedback}
+            onSourceSelect={selectCitationSource}
           />
           {chat.error ? <p className="error-text">{chat.error}</p> : null}
         </section>

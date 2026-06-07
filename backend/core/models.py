@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.constants import DocumentState
+from backend.schemas import SourceItem
 
 @dataclass
 class StorageReadiness:
@@ -31,6 +32,7 @@ class DocumentAnswer:
     status: DocumentState
     storage_dir: Path
     answer: str
+    sources: list[SourceItem]
     vlm_image_paths: list[str]
     fallback_used: bool
     answer_source_path: str

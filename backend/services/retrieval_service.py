@@ -30,6 +30,7 @@ from backend.schemas import (
     ChatRequest,
     ChatResponse,
     MemoryExtractRequest,
+    SourceItem,
 )
 from backend.services.personalization_service import compile_personalization
 from backend.services.conversation_service import (
@@ -37,6 +38,7 @@ from backend.services.conversation_service import (
     ensure_conversation_for_chat,
     update_message_status,
 )
+from backend.services.citation_service import collect_sources_for_query
 from backend.services.document_service import (
     document_status,
     knowledge_base_not_ready_response,
@@ -55,6 +57,7 @@ from backend.services.synthesis_service import (
     direct_context_fallback,
     synthesize_multi_document_answer,
 )
+from backend.services.source_utils import dedupe_sources
 
 logger = logging.getLogger("api_server")
 
@@ -311,6 +314,7 @@ async def query_single_document(
         fallback_used = False
         answer_source_path = "vlm"
         answer = ""
+        sources: list[SourceItem] = []
         query_started = time.perf_counter()
         try:
             primary_query_started = time.perf_counter()
@@ -438,12 +442,38 @@ async def query_single_document(
                 },
             )
 
+        citation_started = time.perf_counter()
+        source_query = user_question if answer_source_path.startswith("direct_context_fallback") else query
+        source_query_kwargs: dict[str, Any] = {
+            "mode": request.mode,
+            "enable_rerank": effective_enable_rerank
+            if not answer_source_path.startswith("direct_context_fallback")
+            else False,
+            **broad_query_kwargs(for_synthesis),
+        }
+        sources = await collect_sources_for_query(
+            rag=rag,
+            document_id=document_id,
+            document_name=context.name,
+            query=source_query,
+            query_kwargs=source_query_kwargs,
+        )
+        timings["citation_sources"] = time.perf_counter() - citation_started
+        logger.info(
+            "Chat citation sources collected document_id=%s count=%s elapsed=%.3fs answer_source_path=%s",
+            document_id,
+            len(sources),
+            timings["citation_sources"],
+            answer_source_path,
+        )
+
     return DocumentAnswer(
         document_id=document_id,
         name=context.name,
         status=status,
         storage_dir=storage_dir,
         answer=answer,
+        sources=sources,
         vlm_image_paths=current_vlm_image_paths(rag),
         fallback_used=fallback_used,
         answer_source_path=answer_source_path,
@@ -560,7 +590,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             )
             response = ChatResponse(
                 answer=answer,
-                sources=[],
+                sources=document_answer.sources,
                 related_images=related_images,
                 inline_image_refs=inline_image_refs,
                 documents_used=[
@@ -699,9 +729,16 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             related_images,
             allowed_images,
         )
+        sources = dedupe_sources(
+            [
+                source
+                for document_answer in document_answers
+                for source in document_answer.sources
+            ]
+        )
         response = ChatResponse(
             answer=answer,
-            sources=[],
+            sources=sources,
             related_images=related_images,
             inline_image_refs=inline_image_refs,
             documents_used=[

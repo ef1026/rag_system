@@ -12,6 +12,7 @@ import {
   extractInlineImageIds,
   MarkdownAnswer,
 } from "@/components/chat/MarkdownAnswer";
+import { CitationList } from "@/components/chat/CitationList";
 import { RelatedImages } from "@/components/chat/RelatedImages";
 import { Button } from "@/components/ui/Button";
 import type { RAGRetrievalStatus } from "@/types/api";
@@ -22,6 +23,7 @@ import type {
   Conversation,
   RelatedImage,
 } from "@/types/chat";
+import type { SourceItem } from "@/types/document";
 
 type ChatPanelProps = {
   conversation: Conversation | null;
@@ -54,6 +56,7 @@ type ChatPanelProps = {
     messageId: string,
     feedback: MessageFeedbackPayload,
   ) => Promise<number>;
+  onSourceSelect?: (source: SourceItem) => void;
 };
 
 type MessageFeedbackPayload = {
@@ -112,6 +115,7 @@ export function ChatPanel({
   onCustomAgentsChange,
   onSaveCustomAgents,
   onMessageFeedback,
+  onSourceSelect,
 }: ChatPanelProps) {
   const [question, setQuestion] = useState("");
   const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
@@ -444,6 +448,7 @@ export function ChatPanel({
             message={message}
             feedbackState={feedbackState[message.id]}
             onFeedback={(feedback) => void submitFeedback(message.id, feedback)}
+            onSourceSelect={onSourceSelect}
           />
         ))}
       </div>
@@ -623,10 +628,12 @@ function MessageBubble({
   message,
   feedbackState,
   onFeedback,
+  onSourceSelect,
 }: {
   message: ChatMessage;
   feedbackState?: { isSaving?: boolean; notice?: string; error?: string };
   onFeedback: (feedback: MessageFeedbackPayload) => void;
+  onSourceSelect?: (source: SourceItem) => void;
 }) {
   const displayContent = getContentWithInlineImages(message);
   const fallbackImages = getFallbackRelatedImages(message, displayContent);
@@ -641,6 +648,7 @@ function MessageBubble({
             relatedImages={message.relatedImages}
           />
           <RelatedImages images={fallbackImages} />
+          <CitationList sources={message.sources} onSourceSelect={onSourceSelect} />
           <MessageFeedback
             isSaving={Boolean(feedbackState?.isSaving)}
             notice={feedbackState?.notice}

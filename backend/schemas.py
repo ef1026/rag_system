@@ -16,9 +16,20 @@ class DocumentSummary(BaseModel):
 
 class SourceItem(BaseModel):
     id: str
-    type: str
+    type: str = "text"
     page: int | None = None
+    page_end: int | None = None
     text: str
+    document_id: str | None = None
+    document_name: str | None = None
+    chunk_id: str | None = None
+    content_index: int | None = None
+    rank: int | None = None
+    score: float | None = None
+    score_type: str | None = None
+    match_score: float | None = None
+    match_method: str | None = None
+    citation_mode: str = "retrieval_context"
 
 
 class UploadResponse(BaseModel):

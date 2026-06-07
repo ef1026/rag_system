@@ -145,6 +145,7 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
 
       const relatedImages = mapRelatedImages(response.related_images);
       const inlineImageRefs = response.inline_image_refs?.filter(Boolean);
+      const sources = response.sources || [];
       if (response.user_message_id && response.user_message_id !== userMessageId) {
         updateMessage(conversationId, userMessageId, (message) => ({
           ...message,
@@ -161,6 +162,7 @@ export function useChat({ appendMessage, updateMessage }: UseChatOptions) {
         mode,
         chatMode,
         level,
+        sources,
         ...(relatedImages ? { relatedImages } : {}),
         ...(inlineImageRefs?.length ? { inlineImageRefs } : {}),
         status: "sent",

@@ -85,6 +85,6 @@ async def rag_status() -> RAGStatusResponse:
         if rerank_status["enabled"]
         else None,
         multimodal_enabled=multimodal_is_enabled,
-        citation_status="not implemented for chat responses",
-        sources_status="document preview only; chat sources are not extracted from retrieval data",
+        citation_status="retrieval evidence sources enabled for chat responses",
+        sources_status="chat sources are mapped from retrieval chunks to MinerU content_list pages when available",
     )
