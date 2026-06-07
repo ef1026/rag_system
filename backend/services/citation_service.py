@@ -28,6 +28,9 @@ SOURCE_MAP_VERSION = 1
 SOURCE_MAP_FILENAME = "source_map.v1.json"
 SOURCE_MAP_TMP_FILENAME = "source_map.v1.tmp.json"
 DEFAULT_SOURCE_LIMIT = 8
+CITATION_ORIGIN_KEY = "_citation_origin"
+CITATION_ORIGIN_RETRIEVAL = "retrieval_context"
+CITATION_ORIGIN_STORAGE_FALLBACK = "storage_fallback"
 
 
 def source_map_path(document_id: str) -> Path:
@@ -348,8 +351,22 @@ async def retrieved_chunks_from_lightrag(
         logger.warning("LightRAG aquery_data citation pass failed: %s", exc)
         return []
 
-    data = raw_data.get("data", {}) if isinstance(raw_data, dict) else {}
-    chunks = data.get("chunks", []) if isinstance(data, dict) else []
+    return chunks_from_raw_data(raw_data)
+
+
+def chunks_from_raw_data(raw_data: Any) -> list[dict[str, Any]]:
+    if isinstance(raw_data, list):
+        chunks = raw_data
+    elif isinstance(raw_data, dict):
+        data = raw_data.get("data")
+        if isinstance(data, dict) and isinstance(data.get("chunks"), list):
+            chunks = data["chunks"]
+        elif isinstance(raw_data.get("chunks"), list):
+            chunks = raw_data["chunks"]
+        else:
+            chunks = []
+    else:
+        chunks = []
     return [chunk for chunk in chunks if isinstance(chunk, dict)]
 
 
@@ -376,6 +393,7 @@ def fallback_chunks_from_storage(
                 "content": chunk.get("content", ""),
                 "file_path": chunk.get("file_path"),
                 "chunk_order_index": chunk.get("chunk_order_index", 0),
+                CITATION_ORIGIN_KEY: CITATION_ORIGIN_STORAGE_FALLBACK,
             }
         )
     chunks.sort(key=lambda item: int(item.get("chunk_order_index") or 0))
@@ -392,6 +410,7 @@ def source_from_chunk(
     chunk_id = chunk_identifier(chunk)
     text = clip_text(str((mapping or {}).get("text") or chunk.get("content") or ""))
     score, score_type = score_from_chunk(chunk)
+    citation_mode = citation_mode_from_chunk(chunk)
     return SourceItem(
         id=f"{document_id}:{chunk_id or rank}:{rank}",
         type=str((mapping or {}).get("type") or "text"),
@@ -407,11 +426,13 @@ def source_from_chunk(
         score_type=score_type,
         match_score=optional_float((mapping or {}).get("match_score")),
         match_method=str((mapping or {}).get("match_method") or "fallback"),
-        citation_mode="retrieval_context",
+        citation_mode=citation_mode,
     )
 
 
 def score_from_chunk(chunk: dict[str, Any]) -> tuple[float | None, str]:
+    if citation_mode_from_chunk(chunk) == CITATION_ORIGIN_STORAGE_FALLBACK:
+        return None, "storage_fallback"
     for key, score_type in (
         ("rerank_score", "rerank"),
         ("relevance_score", "rerank"),
@@ -421,6 +442,12 @@ def score_from_chunk(chunk: dict[str, Any]) -> tuple[float | None, str]:
         if score is not None:
             return score, score_type
     return None, "retrieval_rank"
+
+
+def citation_mode_from_chunk(chunk: dict[str, Any]) -> str:
+    if chunk.get(CITATION_ORIGIN_KEY) == CITATION_ORIGIN_STORAGE_FALLBACK:
+        return CITATION_ORIGIN_STORAGE_FALLBACK
+    return CITATION_ORIGIN_RETRIEVAL
 
 
 def chunk_identifier(chunk: dict[str, Any]) -> str | None:

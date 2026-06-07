@@ -1985,6 +1985,14 @@ textarea:focus-visible {
   color: var(--accent-strong);
 }
 
+.citation-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .citation-list {
   display: grid;
   gap: 8px;

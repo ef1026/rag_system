@@ -35,3 +35,30 @@ def test_dedupe_sources_keeps_distinct_documents() -> None:
     deduped = dedupe_sources(sources)
 
     assert [source.id for source in deduped] == ["a-1", "b-1"]
+
+
+def test_source_item_serialization_keeps_citation_metadata() -> None:
+    source = SourceItem(
+        id="doc1:c1:1",
+        type="text",
+        page=2,
+        page_end=3,
+        text="evidence text",
+        document_id="doc1",
+        document_name="Doc 1",
+        chunk_id="c1",
+        content_index=4,
+        rank=1,
+        score_type="storage_fallback",
+        match_method="fallback",
+        citation_mode="storage_fallback",
+    )
+
+    dumped = source.model_dump()
+    restored = SourceItem(**dumped)
+
+    assert restored.document_id == "doc1"
+    assert restored.chunk_id == "c1"
+    assert restored.page_end == 3
+    assert restored.score_type == "storage_fallback"
+    assert restored.citation_mode == "storage_fallback"

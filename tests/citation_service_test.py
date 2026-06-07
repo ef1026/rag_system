@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.schemas import SourceItem
 from backend.services import citation_service as citations
 
 
@@ -92,3 +93,64 @@ def test_map_retrieved_chunks_falls_back_when_source_map_fails(monkeypatch) -> N
     assert sources[0].chunk_id == "chunk-1"
     assert sources[0].match_method == "fallback"
     assert sources[0].score_type == "retrieval_rank"
+
+
+def test_source_item_keeps_citation_metadata() -> None:
+    source = SourceItem(
+        id="doc1:c1:1",
+        type="text",
+        page=3,
+        text="hello",
+        document_id="doc1",
+        document_name="test.pdf",
+        chunk_id="c1",
+        rank=1,
+        match_method="fallback",
+        citation_mode="retrieval_context",
+    )
+
+    assert source.document_id == "doc1"
+    assert source.chunk_id == "c1"
+    assert source.rank == 1
+    assert source.match_method == "fallback"
+    assert source.citation_mode == "retrieval_context"
+
+
+def test_retrieval_chunk_without_score_uses_retrieval_rank() -> None:
+    source = citations.source_from_chunk(
+        "sample.pdf",
+        "Sample",
+        {"chunk_id": "chunk-1", "content": "retrieved text"},
+        None,
+        1,
+    )
+
+    assert source.citation_mode == "retrieval_context"
+    assert source.score is None
+    assert source.score_type == "retrieval_rank"
+
+
+def test_storage_fallback_chunk_uses_storage_fallback_score_type() -> None:
+    source = citations.source_from_chunk(
+        "sample.pdf",
+        "Sample",
+        {
+            "chunk_id": "chunk-1",
+            "content": "fallback text",
+            citations.CITATION_ORIGIN_KEY: citations.CITATION_ORIGIN_STORAGE_FALLBACK,
+        },
+        None,
+        1,
+    )
+
+    assert source.citation_mode == "storage_fallback"
+    assert source.score is None
+    assert source.score_type == "storage_fallback"
+
+
+def test_chunks_from_raw_data_accepts_supported_shapes() -> None:
+    chunk = {"chunk_id": "chunk-1", "content": "text"}
+
+    assert citations.chunks_from_raw_data({"data": {"chunks": [chunk]}}) == [chunk]
+    assert citations.chunks_from_raw_data({"chunks": [chunk]}) == [chunk]
+    assert citations.chunks_from_raw_data([chunk]) == [chunk]

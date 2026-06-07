@@ -9,12 +9,25 @@ type CitationListProps = {
 export function CitationList({ sources, onSourceSelect }: CitationListProps) {
   if (!sources?.length) return null;
 
+  const fallbackCount = sources.filter(
+    (source) => source.citation_mode === "storage_fallback",
+  ).length;
+  const allFallback = fallbackCount === sources.length;
+  const hasFallback = fallbackCount > 0;
+
   return (
     <section className="message-citations" aria-label="回答检索证据">
       <div className="message-citations-heading">
-        <span>本回答参考了以下检索证据</span>
+        <span>
+          {allFallback
+            ? "检索证据不可用，以下为文档片段回退结果"
+            : "本回答参考了以下检索证据"}
+        </span>
         <strong>{sources.length}</strong>
       </div>
+      {hasFallback && !allFallback ? (
+        <p className="citation-note">部分引用为文档片段回退结果。</p>
+      ) : null}
       <div className="citation-list">
         {sources.map((source) => (
           <button
@@ -29,6 +42,10 @@ export function CitationList({ sources, onSourceSelect }: CitationListProps) {
               <span>{pageLabel(source)}</span>
               {typeof source.rank === "number" ? <span>#{source.rank}</span> : null}
               <span>{sourceLabel(source.type)}</span>
+              {source.citation_mode ? (
+                <span>{citationModeLabel(source.citation_mode)}</span>
+              ) : null}
+              {source.score_type ? <span>{scoreTypeLabel(source.score_type)}</span> : null}
               {source.match_method ? <span>{matchMethodLabel(source.match_method)}</span> : null}
             </span>
             <span className="citation-text">{source.text}</span>
@@ -57,4 +74,18 @@ function matchMethodLabel(method: string) {
   if (method === "fuzzy") return "相似匹配";
   if (method === "fallback") return "片段回退";
   return method;
+}
+
+function citationModeLabel(mode: string) {
+  if (mode === "retrieval_context") return "检索证据";
+  if (mode === "storage_fallback") return "回退片段";
+  return mode;
+}
+
+function scoreTypeLabel(scoreType: string) {
+  if (scoreType === "retrieval_rank") return "检索排序";
+  if (scoreType === "storage_fallback") return "非检索排序";
+  if (scoreType === "rerank") return "重排分";
+  if (scoreType === "match") return "匹配分";
+  return scoreType;
 }

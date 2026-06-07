@@ -19,6 +19,12 @@ import type { ApiHealth, RAGStatusResponse } from "@/types/api";
 import type { AnswerLevel, ChatMode, Conversation } from "@/types/chat";
 import type { DocumentSummary, SourceItem } from "@/types/document";
 
+type CitationTarget = {
+  documentId: string;
+  page: number | null;
+  sourceId: string;
+};
+
 export default function Home() {
   const documents = useDocuments();
   const conversations = useConversations();
@@ -38,6 +44,7 @@ export default function Home() {
   const [customAgentsNotice, setCustomAgentsNotice] = useState("");
   const [healthError, setHealthError] = useState("");
   const [documentSelectionError, setDocumentSelectionError] = useState("");
+  const [citationTarget, setCitationTarget] = useState<CitationTarget | null>(null);
   const selectedDocumentIds = conversations.activeConversation?.documentIds || [];
   const selectedConversationDocuments = selectedDocumentIds
     .map((documentId) =>
@@ -177,6 +184,11 @@ export default function Home() {
 
   function selectCitationSource(source: SourceItem) {
     if (!source.document_id) return;
+    setCitationTarget({
+      documentId: source.document_id,
+      page: typeof source.page === "number" ? source.page : null,
+      sourceId: source.id,
+    });
     const documentExists = documents.documents.some(
       (document) => document.id === source.document_id,
     );
@@ -334,6 +346,9 @@ export default function Home() {
             onSourceSelect={selectCitationSource}
           />
           {chat.error ? <p className="error-text">{chat.error}</p> : null}
+          {citationTarget ? (
+            <p className="chat-status">{citationTargetLabel(citationTarget)}</p>
+          ) : null}
         </section>
 
         <aside className="right-rail" aria-label="学习与对话记录">
@@ -352,6 +367,11 @@ export default function Home() {
       </div>
     </AppShell>
   );
+}
+
+function citationTargetLabel(target: CitationTarget) {
+  const page = target.page !== null ? ` · 第 ${target.page} 页` : "";
+  return `已选中引用文档${page}`;
 }
 
 function getBoundDocumentIssue(

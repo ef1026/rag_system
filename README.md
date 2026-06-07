@@ -195,7 +195,7 @@ The current FastAPI pipeline is:
 - Retrieval mode: `/api/chat` defaults to `hybrid`; the frontend currently sends `mode: "hybrid"`. Chat requires `document_id` and loads only that document's scoped storage.
 - VLM enhanced query: enabled automatically when `ENABLE_MULTIMODAL=true`, image processing is enabled, and a vision model function is available. If no valid images are found in retrieved context, RAG-Anything falls back to normal text query.
 - Rerank: controlled by `ENABLE_RERANK`, `RERANK_BINDING`, `RERANK_MODEL`, `RERANK_BINDING_API_KEY`, optional `RERANK_BASE_URL`, and optional `RERANK_TOP_N`. Default is disabled. If rerank is requested but model/provider/key initialization is unavailable, chat automatically passes `enable_rerank=false` and continues without rerank.
-- Sources/citations: document preview sources are extracted from MinerU `content_list`; chat responses currently return `sources: []` because retrieval raw data is not mapped back to source/page/score metadata yet.
+- Sources/citations: document preview sources are extracted from MinerU `content_list`. Chat responses now return retrieval evidence in `sources`, including document id/name, chunk id, rank, page metadata when it can be mapped from `source_map.v1.json`, and match metadata. These are retrieval evidence pool citations, not claim-level citations. If LightRAG raw retrieval chunks are unavailable, the backend may return `storage_fallback` source items from document chunks; those are explicitly marked as fallback snippets rather than retrieval-ranked evidence.
 
 Document-scoped retrieval:
 
