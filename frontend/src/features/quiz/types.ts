@@ -1,3 +1,5 @@
+import type { RelatedImage } from "@/types/chat";
+
 export type QuizChoice = {
   id: string;
   text: string;
@@ -10,6 +12,7 @@ export type QuizQuestion = {
   correct_choice_id: string;
   explanation: string;
   source_message_ids: string[];
+  related_images: RelatedImage[];
 };
 
 export type QuizSession = {
@@ -53,6 +56,7 @@ export type WrongQuestion = {
   correct_choice_id: string;
   explanation: string;
   source_message_ids: string[];
+  related_images: RelatedImage[];
   created_at: string;
   reviewed_at?: string | null;
 };

@@ -15,6 +15,7 @@ from backend.core.ids import safe_document_id
 from backend.core.text import response_content_to_text
 from backend.schemas import (
     ConversationMessage,
+    ImageAssetPublic,
     QuizChoice,
     QuizGenerateRequest,
     QuizQuestion,
@@ -33,6 +34,7 @@ from backend.services.profile_service import get_profile
 from backend.storage.sqlite import metadata_connection
 
 CHOICE_IDS = ("A", "B", "C", "D")
+MESSAGE_ID_PATTERN = re.compile(r"\bmsg_[A-Za-z0-9._:-]+\b")
 QUIZ_MEMORY_TYPES = {
     "knowledge_gap",
     "learning_gap",
@@ -80,6 +82,7 @@ class QuizSource:
     role: str
     content: str
     status: str = "sent"
+    related_images: tuple[ImageAssetPublic, ...] = ()
 
 
 async def generate_quiz(payload: QuizGenerateRequest) -> QuizSession:
@@ -102,6 +105,7 @@ async def generate_quiz(payload: QuizGenerateRequest) -> QuizSession:
     if len(questions) < count:
         raise HTTPException(status_code=400, detail="当前材料还不足以生成小测验。")
 
+    questions = _attach_related_images_to_questions(questions, sources)
     profile_id = _profile_id()
     now = _utc_now()
     session = QuizSession(
@@ -185,9 +189,10 @@ def submit_quiz(session_id: str, payload: QuizSubmitRequest) -> QuizSubmitRespon
                 INSERT INTO wrong_questions (
                     id, profile_id, quiz_session_id, conversation_id, question_id,
                     prompt, choices_json, selected_choice_id, correct_choice_id,
-                    explanation, source_message_ids_json, created_at, reviewed_at
+                    explanation, source_message_ids_json, related_images_json,
+                    created_at, reviewed_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
                 """,
                 (
                     _new_id("wrong"),
@@ -201,6 +206,12 @@ def submit_quiz(session_id: str, payload: QuizSubmitRequest) -> QuizSubmitRespon
                     question.correct_choice_id,
                     question.explanation,
                     _json_dumps(question.source_message_ids),
+                    _json_dumps(
+                        [
+                            _model_dump(image, exclude_none=True)
+                            for image in question.related_images
+                        ]
+                    ),
                     now,
                 ),
             )
@@ -367,6 +378,7 @@ def _learning_answer_sources(
                 id=f"learn_{message.id}",
                 role="assistant",
                 content=f"历史学习记录：{content}",
+                related_images=tuple(message.related_images),
             )
         )
     return sources[-max(1, limit) :]
@@ -426,6 +438,9 @@ def _quiz_record_sources(
                     id=f"wrong_{data['id']}",
                     role="wrong_question",
                     content=content,
+                    related_images=tuple(
+                        _images_from_json(data.get("related_images_json"))
+                    ),
                 ),
             )
         )
@@ -445,6 +460,7 @@ def _quiz_record_sources(
                         id=f"quiz_{data['id']}_{question.id}",
                         role="quiz_record",
                         content=content,
+                        related_images=tuple(question.related_images),
                     ),
                 )
             )
@@ -879,6 +895,54 @@ def _fallback_questions(sources: list[QuizSource], count: int) -> list[QuizQuest
     return questions
 
 
+def _attach_related_images_to_questions(
+    questions: list[QuizQuestion],
+    sources: list[QuizSource],
+) -> list[QuizQuestion]:
+    images_by_source_id = {
+        source.id: source.related_images for source in sources if source.related_images
+    }
+    if not images_by_source_id:
+        return questions
+
+    attached_questions: list[QuizQuestion] = []
+    for question in questions:
+        related_images = _related_images_for_source_ids(
+            question.source_message_ids,
+            images_by_source_id,
+        )
+        if not related_images:
+            attached_questions.append(question)
+            continue
+        data = _model_dump(question)
+        data["related_images"] = [
+            _model_dump(image, exclude_none=True) for image in related_images
+        ]
+        attached_questions.append(QuizQuestion(**data))
+    return attached_questions
+
+
+def _related_images_for_source_ids(
+    source_ids: list[str],
+    images_by_source_id: dict[str, tuple[ImageAssetPublic, ...]],
+) -> list[ImageAssetPublic]:
+    related_images: list[ImageAssetPublic] = []
+    seen: set[tuple[str, str]] = set()
+    for source_id in source_ids:
+        source_images = images_by_source_id.get(source_id)
+        if source_images is None and source_id.startswith("msg_"):
+            source_images = images_by_source_id.get(f"learn_{source_id}")
+        for image in source_images or ():
+            key = (image.document_id, image.image_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            related_images.append(image)
+            if len(related_images) >= 6:
+                return related_images
+    return related_images
+
+
 def _source_pairs(sources: list[QuizSource]) -> list[tuple[QuizSource, QuizSource]]:
     pairs: list[tuple[QuizSource, QuizSource]] = []
     pending_user = None
@@ -930,6 +994,13 @@ def _session_from_row(row: dict[str, Any]) -> QuizSession:
 
 
 def _wrong_question_from_row(row: dict[str, Any]) -> WrongQuestion:
+    source_message_ids = _string_list_from_json(row.get("source_message_ids_json"))
+    related_images = _images_from_json(row.get("related_images_json"))
+    if not related_images:
+        related_images = _related_images_from_wrong_question_row(
+            row,
+            source_message_ids,
+        )
     return WrongQuestion(
         id=str(row["id"]),
         profile_id=str(row["profile_id"]),
@@ -941,10 +1012,63 @@ def _wrong_question_from_row(row: dict[str, Any]) -> WrongQuestion:
         selected_choice_id=str(row.get("selected_choice_id") or ""),
         correct_choice_id=str(row["correct_choice_id"]),
         explanation=str(row.get("explanation") or ""),
-        source_message_ids=_string_list_from_json(row.get("source_message_ids_json")),
+        source_message_ids=source_message_ids,
+        related_images=related_images,
         created_at=str(row["created_at"]),
         reviewed_at=row.get("reviewed_at"),
     )
+
+
+def _related_images_from_wrong_question_row(
+    row: dict[str, Any],
+    source_message_ids: list[str],
+) -> list[ImageAssetPublic]:
+    conversation_id = _optional_text(row.get("conversation_id"))
+    if not conversation_id:
+        return []
+    message_ids = _message_ids_from_source_refs(
+        source_message_ids,
+        [
+            row.get("prompt"),
+            row.get("explanation"),
+        ],
+    )
+    if not message_ids:
+        return []
+    try:
+        messages = list_messages(conversation_id)
+    except Exception:
+        return []
+    related_images: list[ImageAssetPublic] = []
+    seen: set[tuple[str, str]] = set()
+    for message in messages:
+        if message.id not in message_ids:
+            continue
+        for image in message.related_images:
+            key = (image.document_id, image.image_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            related_images.append(image)
+            if len(related_images) >= 6:
+                return related_images
+    return related_images
+
+
+def _message_ids_from_source_refs(
+    source_ids: list[str],
+    text_values: list[Any],
+) -> set[str]:
+    message_ids: set[str] = set()
+    for source_id in source_ids:
+        text = str(source_id or "").strip()
+        if text.startswith("learn_"):
+            text = text.removeprefix("learn_")
+        if text.startswith("msg_"):
+            message_ids.add(text)
+    for value in text_values:
+        message_ids.update(MESSAGE_ID_PATTERN.findall(str(value or "")))
+    return message_ids
 
 
 def _questions_from_json(value: Any) -> list[QuizQuestion]:
@@ -966,6 +1090,16 @@ def _choices_from_json(value: Any) -> list[QuizChoice]:
         except Exception:
             continue
     return choices
+
+
+def _images_from_json(value: Any) -> list[ImageAssetPublic]:
+    images: list[ImageAssetPublic] = []
+    for record in _records_from_json(value):
+        try:
+            images.append(ImageAssetPublic(**record))
+        except Exception:
+            continue
+    return images
 
 
 def _records_from_json(value: Any) -> list[dict[str, Any]]:

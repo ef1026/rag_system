@@ -494,6 +494,7 @@ class QuizQuestion(BaseModel):
     correct_choice_id: str
     explanation: str
     source_message_ids: list[str] = Field(default_factory=list)
+    related_images: list[ImageAssetPublic] = Field(default_factory=list)
 
 
 class QuizSession(BaseModel):
@@ -547,6 +548,7 @@ class WrongQuestion(BaseModel):
     correct_choice_id: str
     explanation: str
     source_message_ids: list[str] = Field(default_factory=list)
+    related_images: list[ImageAssetPublic] = Field(default_factory=list)
     created_at: str
     reviewed_at: str | None = None
 

@@ -198,6 +198,7 @@ function WrongRecord({
           correct_choice_id: question.correct_choice_id,
           explanation: question.explanation,
           source_message_ids: question.source_message_ids,
+          related_images: question.related_images,
         }}
         index={index}
         selectedChoiceId={question.selected_choice_id}

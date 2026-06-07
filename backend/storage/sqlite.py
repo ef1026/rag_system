@@ -195,6 +195,7 @@ CREATE TABLE IF NOT EXISTS wrong_questions (
     correct_choice_id TEXT NOT NULL,
     explanation TEXT,
     source_message_ids_json TEXT NOT NULL DEFAULT '[]',
+    related_images_json TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     reviewed_at TEXT
 );
@@ -225,6 +226,7 @@ def init_metadata_db() -> None:
         _ensure_column(connection, "user_memories", "auto_apply", "INTEGER DEFAULT 1")
         _ensure_column(connection, "quiz_sessions", "questions_json", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(connection, "wrong_questions", "source_message_ids_json", "TEXT NOT NULL DEFAULT '[]'")
+        _ensure_column(connection, "wrong_questions", "related_images_json", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(connection, "wrong_questions", "reviewed_at", "TEXT")
         connection.commit()
 

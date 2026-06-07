@@ -202,26 +202,13 @@ def build_multi_document_synthesis_prompt(
 ) -> str:
     answer_sections = []
     for index, document_answer in enumerate(document_answers, start=1):
-        answer = document_answer.answer[:8000]
-        direct_context, context_source, context_warnings = collect_direct_context(
-            document_answer.document_id,
-            max_chars=10000,
-        )
-        direct_context_note = ""
-        if direct_context.strip():
-            direct_context_note = (
-                f"\n\n[宽召回原文摘录 source={context_source}]"
-                f"\n{direct_context[:10000]}"
-            )
-        if context_warnings:
-            logger.warning(
-                "Multi-document synthesis direct context warnings document_id=%s warnings=%s",
-                document_answer.document_id,
-                "; ".join(context_warnings[:8]),
-            )
+        is_direct_summary = document_answer.answer_source_path.startswith("direct_summary")
+        answer = document_answer.answer[:12000 if is_direct_summary else 8000]
+        direct_context_note = synthesis_context_note(document_answer)
+        section_label = "文档摘要原文摘录" if is_direct_summary else "单文档检索回答"
         answer_sections.append(
             f"[文档 {index}: {document_answer.name} / {document_answer.document_id}]"
-            f"\n[单文档检索回答]\n{answer}"
+            f"\n[{section_label}]\n{answer}"
             f"{direct_context_note}"
         )
 
@@ -254,6 +241,45 @@ def build_multi_document_synthesis_prompt(
         )
         + "\n\n---\n\n".join(answer_sections)
     )
+
+
+def synthesis_context_note(document_answer: DocumentAnswer) -> str:
+    if document_answer.answer_source_path.startswith("direct_summary"):
+        return ""
+    needs_wide_context = (
+        document_answer.fallback_used
+        or document_answer.answer_source_path.startswith("direct_context_fallback")
+        or answer_needs_fallback(document_answer.answer)
+    )
+    if needs_wide_context:
+        direct_context, context_source, context_warnings = collect_direct_context(
+            document_answer.document_id,
+            max_chars=10000,
+        )
+        if context_warnings:
+            logger.warning(
+                "Multi-document synthesis direct context warnings document_id=%s warnings=%s",
+                document_answer.document_id,
+                "; ".join(context_warnings[:8]),
+            )
+        if direct_context.strip():
+            return (
+                f"\n\n[宽召回原文摘录 source={context_source}]"
+                f"\n{direct_context[:10000]}"
+            )
+        return ""
+
+    evidence_parts: list[str] = []
+    for source in document_answer.sources[:6]:
+        text = source.text.strip()
+        if text:
+            evidence_parts.append(text)
+        if sum(len(part) for part in evidence_parts) >= 2400:
+            break
+    if not evidence_parts:
+        return ""
+    excerpt = "\n\n".join(evidence_parts)[:2400]
+    return f"\n\n[检索证据摘录]\n{excerpt}"
 
 
 async def synthesize_multi_document_answer(

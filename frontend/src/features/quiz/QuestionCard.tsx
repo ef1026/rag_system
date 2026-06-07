@@ -1,11 +1,18 @@
 "use client";
 
 import { MarkdownAnswer } from "@/components/chat/MarkdownAnswer";
+import { RelatedImages } from "@/components/chat/RelatedImages";
 import type { QuizChoice, QuizQuestion, QuizQuestionResult } from "./types";
 
 type QuestionDisplay = Pick<
   QuizQuestion,
-  "id" | "prompt" | "choices" | "correct_choice_id" | "explanation" | "source_message_ids"
+  | "id"
+  | "prompt"
+  | "choices"
+  | "correct_choice_id"
+  | "explanation"
+  | "source_message_ids"
+  | "related_images"
 >;
 
 type QuestionCardProps = {
@@ -33,10 +40,14 @@ export function QuestionCard({
     <article className="quiz-question">
       <div className="quiz-question-prompt">
         <span className="quiz-question-number">{index + 1}</span>
-        <MarkdownAnswer content={question.prompt} />
+        <MarkdownAnswer
+          content={question.prompt}
+          relatedImages={question.related_images}
+        />
       </div>
 
       <SourceReferences sourceIds={question.source_message_ids} />
+      <RelatedImages images={question.related_images} />
 
       <div className="quiz-choice-list">
         {question.choices.map((choice) => (
@@ -54,7 +65,10 @@ export function QuestionCard({
       {isAnswered ? (
         <div className="quiz-explanation">
           <strong>解析</strong>
-          <MarkdownAnswer content={explanation || "暂无解析。"} />
+          <MarkdownAnswer
+            content={explanation || "暂无解析。"}
+            relatedImages={question.related_images}
+          />
         </div>
       ) : null}
     </article>

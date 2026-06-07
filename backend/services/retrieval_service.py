@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -38,7 +39,11 @@ from backend.services.conversation_service import (
     ensure_conversation_for_chat,
     update_message_status,
 )
-from backend.services.citation_service import collect_sources_for_query
+from backend.services.citation_service import (
+    collect_sources_for_query,
+    fallback_chunks_from_storage,
+    map_retrieved_chunks_to_sources,
+)
 from backend.services.document_service import (
     document_status,
     knowledge_base_not_ready_response,
@@ -54,12 +59,23 @@ from backend.services.image_service import (
 from backend.services.memory_service import extract_memories
 from backend.services.synthesis_service import (
     answer_needs_fallback,
+    collect_direct_context,
     direct_context_fallback,
     synthesize_multi_document_answer,
 )
-from backend.services.source_utils import dedupe_sources
+from backend.services.source_utils import citation_metrics, dedupe_sources
 
 logger = logging.getLogger("api_server")
+
+SUMMARY_REQUEST_TERMS = (
+    "总结",
+    "概述",
+    "梳理",
+    "归纳",
+    "summary",
+    "summarize",
+    "overview",
+)
 
 
 def broad_query_kwargs(for_synthesis: bool) -> dict[str, int]:
@@ -90,6 +106,31 @@ def broad_query_kwargs(for_synthesis: bool) -> dict[str, int]:
             default_max_total_tokens,
         ),
     }
+
+
+def multi_document_query_concurrency() -> int:
+    configured = as_int(os.getenv("CHAT_MULTI_DOCUMENT_CONCURRENCY"), 2)
+    return max(1, min(configured, 3))
+
+
+def is_summary_request(question: str) -> bool:
+    normalized = question.strip().lower()
+    return any(term in normalized for term in SUMMARY_REQUEST_TERMS)
+
+
+def log_citation_metrics(scope: str, sources: list[SourceItem]) -> None:
+    metrics = citation_metrics(sources)
+    logger.info(
+        "Chat citation metrics scope=%s sources_total=%s sources_with_page=%s page_hit_rate=%.4f fallback_ratio=%.4f citation_mode_counts=%s match_method_counts=%s documents_covered=%s",
+        scope,
+        metrics["sources_total"],
+        metrics["sources_with_page"],
+        metrics["page_hit_rate"],
+        metrics["fallback_ratio"],
+        metrics["citation_mode_counts"],
+        metrics["match_method_counts"],
+        metrics["documents_covered"],
+    )
 
 def normalize_chat_document_ids(request: ChatRequest) -> list[str]:
     raw_document_ids = request.document_ids or []
@@ -312,7 +353,7 @@ async def query_single_document(
             prompt_template_used,
         )
         fallback_used = False
-        answer_source_path = "vlm"
+        answer_source_path = "text" if requested_vlm_enhanced is False else "vlm"
         answer = ""
         sources: list[SourceItem] = []
         query_started = time.perf_counter()
@@ -352,7 +393,7 @@ async def query_single_document(
             timings["vlm_enhanced_query"] = (
                 primary_query_elapsed if requested_vlm_enhanced is not False else 0.0
             )
-            if answer_needs_fallback(answer):
+            if answer_needs_fallback(answer) and requested_vlm_enhanced is not False:
                 fallback_used = True
                 answer_source_path = "text_fallback"
                 logger.warning(
@@ -382,8 +423,9 @@ async def query_single_document(
             if answer_needs_fallback(answer):
                 fallback_used = True
                 logger.warning(
-                    "Text fallback still returned empty/context-empty answer; trying direct context fallback. document_id=%s routing=direct",
+                    "Text chat query returned empty/context-empty answer; trying direct context fallback. document_id=%s routing=direct answer_source_path=%s",
                     document_id,
+                    answer_source_path,
                 )
                 fallback_started = time.perf_counter()
                 answer, answer_source_path = await direct_context_fallback(
@@ -466,6 +508,7 @@ async def query_single_document(
             timings["citation_sources"],
             answer_source_path,
         )
+        log_citation_metrics(f"document:{document_id}", sources)
 
     return DocumentAnswer(
         document_id=document_id,
@@ -480,6 +523,145 @@ async def query_single_document(
         prompt_template_used=prompt_template_used,
         timings=timings,
     )
+
+
+def build_direct_summary_document_answers(
+    contexts: list[DocumentChatContext],
+) -> tuple[list[DocumentAnswer], list[ChatPartialFailure]]:
+    document_answers: list[DocumentAnswer] = []
+    partial_failures: list[ChatPartialFailure] = []
+    max_context_chars = max(
+        1000,
+        as_int(os.getenv("CHAT_SUMMARY_DIRECT_CONTEXT_CHARS"), 12000),
+    )
+    source_limit = max(1, as_int(os.getenv("CHAT_SUMMARY_SOURCES_LIMIT"), 8))
+
+    for context in contexts:
+        started = time.perf_counter()
+        direct_context, source_path, warnings = collect_direct_context(
+            context.document_id,
+            max_chars=max_context_chars,
+        )
+        if warnings:
+            logger.warning(
+                "Chat summary direct context warnings document_id=%s warnings=%s",
+                context.document_id,
+                "; ".join(warnings[:8]),
+            )
+        if not direct_context.strip():
+            partial_failures.append(
+                ChatPartialFailure(
+                    document_id=context.document_id,
+                    name=context.name,
+                    error="direct_summary_context_empty",
+                )
+            )
+            continue
+
+        chunks = fallback_chunks_from_storage(
+            context.document_id,
+            {"chunk_top_k": source_limit},
+        )
+        sources = map_retrieved_chunks_to_sources(
+            context.document_id,
+            context.name,
+            chunks,
+            limit=source_limit,
+        )
+        logger.info(
+            "Chat summary direct route document_id=%s source_path=%s context_chars=%s sources=%s elapsed=%.3fs",
+            context.document_id,
+            source_path,
+            len(direct_context),
+            len(sources),
+            time.perf_counter() - started,
+        )
+        log_citation_metrics(f"summary_direct:{context.document_id}", sources)
+        document_answers.append(
+            DocumentAnswer(
+                document_id=context.document_id,
+                name=context.name,
+                status=context.status,
+                storage_dir=context.storage_dir,
+                answer=direct_context[:max_context_chars],
+                sources=sources,
+                vlm_image_paths=[],
+                fallback_used=False,
+                answer_source_path=f"direct_summary:{source_path}",
+                prompt_template_used=prompt_template_name(1),
+                timings={"direct_context": time.perf_counter() - started},
+            )
+        )
+
+    return document_answers, partial_failures
+
+
+async def query_multi_document_answers(
+    request: ChatRequest,
+    contexts: list[DocumentChatContext],
+    level_key: str,
+    level_prompt: str,
+    profile_prompt: str,
+    retrieval_hints: list[str],
+) -> tuple[list[DocumentAnswer], list[ChatPartialFailure]]:
+    semaphore = asyncio.Semaphore(multi_document_query_concurrency())
+
+    async def query_context(
+        index: int,
+        context: DocumentChatContext,
+    ) -> tuple[int, DocumentAnswer | None, ChatPartialFailure | None]:
+        document_query_started = time.perf_counter()
+        try:
+            async with semaphore:
+                document_answer = await query_single_document(
+                    request,
+                    context,
+                    level_key,
+                    level_prompt,
+                    profile_prompt,
+                    retrieval_hints,
+                    True,
+                )
+            logger.info(
+                "Chat multi-document per-document query document_id=%s storage_dir=%s elapsed=%.3fs answer_source_path=%s",
+                context.document_id,
+                context.storage_dir,
+                time.perf_counter() - document_query_started,
+                document_answer.answer_source_path,
+            )
+            return index, document_answer, None
+        except HTTPException as exc:
+            logger.warning(
+                "Chat multi-document partial failure document_id=%s storage_dir=%s error=%s",
+                context.document_id,
+                context.storage_dir,
+                exc.detail,
+            )
+            return (
+                index,
+                None,
+                ChatPartialFailure(
+                    document_id=context.document_id,
+                    name=context.name,
+                    error=str(exc.detail),
+                ),
+            )
+
+    results = await asyncio.gather(
+        *(query_context(index, context) for index, context in enumerate(contexts))
+    )
+    ordered_results = sorted(results, key=lambda item: item[0])
+    document_answers = [
+        document_answer
+        for _index, document_answer, _failure in ordered_results
+        if document_answer is not None
+    ]
+    partial_failures = [
+        failure
+        for _index, _document_answer, failure in ordered_results
+        if failure is not None
+    ]
+    return document_answers, partial_failures
 
 
 async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
@@ -649,42 +831,26 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 refresh_memory_candidates(conversation_id)
             return response
 
-        document_answers: list[DocumentAnswer] = []
-        partial_failures: list[ChatPartialFailure] = []
-        for context in contexts:
-            document_query_started = time.perf_counter()
-            try:
-                document_answer = await query_single_document(
-                    request,
-                    context,
-                    level_key,
-                    level_prompt,
-                    profile_prompt,
-                    retrieval_hints,
-                    True,
-                )
-                document_answers.append(document_answer)
-                logger.info(
-                    "Chat multi-document per-document query document_id=%s storage_dir=%s elapsed=%.3fs answer_source_path=%s",
-                    context.document_id,
-                    context.storage_dir,
-                    time.perf_counter() - document_query_started,
-                    document_answer.answer_source_path,
-                )
-            except HTTPException as exc:
-                logger.warning(
-                    "Chat multi-document partial failure document_id=%s storage_dir=%s error=%s",
-                    context.document_id,
-                    context.storage_dir,
-                    exc.detail,
-                )
-                partial_failures.append(
-                    ChatPartialFailure(
-                        document_id=context.document_id,
-                        name=context.name,
-                        error=str(exc.detail),
-                    )
-                )
+        if is_summary_request(request.question):
+            logger.info(
+                "Chat summary direct routing enabled document_ids=%s question=%r",
+                document_ids,
+                request.question,
+            )
+            document_answers, partial_failures = build_direct_summary_document_answers(
+                contexts
+            )
+            synthesis_source_path = "summary_direct_synthesis"
+        else:
+            document_answers, partial_failures = await query_multi_document_answers(
+                request,
+                contexts,
+                level_key,
+                level_prompt,
+                profile_prompt,
+                retrieval_hints,
+            )
+            synthesis_source_path = "multi_document_synthesis"
 
         if not document_answers:
             mark_user_message_failed(user_message_id, "knowledge_base_not_ready")
@@ -736,6 +902,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 for source in document_answer.sources
             ]
         )
+        log_citation_metrics("multi_document", sources)
         response = ChatResponse(
             answer=answer,
             sources=sources,
@@ -761,7 +928,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             prompt_template_used,
             [str(document_answer.storage_dir) for document_answer in document_answers],
             any(document_answer.fallback_used for document_answer in document_answers),
-            "multi_document_synthesis",
+            synthesis_source_path,
             len(partial_failures),
         )
         logger.info(
