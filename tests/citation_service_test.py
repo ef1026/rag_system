@@ -262,3 +262,40 @@ def test_chunks_from_raw_data_accepts_supported_shapes() -> None:
     assert citations.chunks_from_raw_data({"data": [chunk]}) == [chunk]
     assert citations.chunks_from_raw_data([chunk]) == [chunk]
     assert citations.chunks_from_raw_data({"data": {"chunks": ["bad"]}}) == []
+
+
+def test_fast_text_chunks_from_storage_ranks_keyword_matches(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "kv_store_text_chunks.json").write_text(
+        json.dumps(
+            {
+                "chunk-a": {
+                    "_id": "chunk-a",
+                    "content": "unrelated introduction",
+                    "chunk_order_index": 0,
+                },
+                "chunk-b": {
+                    "_id": "chunk-b",
+                    "content": "alpha beta concept and alpha examples",
+                    "chunk_order_index": 1,
+                },
+                "chunk-c": {
+                    "_id": "chunk-c",
+                    "content": "beta only",
+                    "chunk_order_index": 2,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(citations, "document_storage_dir", lambda _document_id: tmp_path)
+
+    chunks = citations.fast_text_chunks_from_storage(
+        "sample.pdf",
+        "alpha concept",
+        {"chunk_top_k": 2},
+    )
+
+    assert [chunk["chunk_id"] for chunk in chunks] == ["chunk-b"]

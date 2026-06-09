@@ -8,6 +8,7 @@ from backend.config import (
     OUTPUT_DIR,
     as_bool,
     formula_processing_enabled,
+    generic_processing_enabled,
     multimodal_enabled,
 )
 from backend.rag.rerank import build_rerank_model_func, current_rerank_runtime_status
@@ -71,6 +72,7 @@ async def rag_status() -> RAGStatusResponse:
             equation_processing=multimodal_is_enabled
             and as_bool(os.getenv("ENABLE_EQUATION_PROCESSING"), True),
             formula_processing=formula_processing_enabled(),
+            generic_processing=multimodal_is_enabled and generic_processing_enabled(),
             vlm_model=os.getenv("QWEN_VL_MODEL") or None,
         ),
         embedding=RAGEmbeddingStatus(model=embedding_model),

@@ -32,13 +32,20 @@ def load_runtime_config() -> None:
     os.environ.setdefault("ENABLE_TABLE_PROCESSING", "true")
     os.environ.setdefault("ENABLE_EQUATION_PROCESSING", "true")
     os.environ.setdefault("ENABLE_FORMULA_PROCESSING", "true")
-    os.environ.setdefault("ENABLE_GENERIC_PROCESSING", "false")
+    os.environ.setdefault("ENABLE_GENERIC_PROCESSING", "true")
     os.environ.setdefault("QWEN_VL_MODEL", "qwen-vl-max")
     os.environ.setdefault(
         "QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
-    os.environ.setdefault("ENABLE_RERANK", "false")
-    os.environ.setdefault("RERANK_MODEL", "")
+    os.environ.setdefault("ENABLE_RERANK", "true")
+    os.environ.setdefault("RERANK_MODEL", "qwen3-rerank")
+    os.environ.setdefault("RERANK_BINDING", "aliyun")
+    os.environ.setdefault("RERANK_TOP_N", "10")
+    os.environ.setdefault("CHAT_FAST_TEXT_QUERY_MODE", "naive")
+    os.environ.setdefault("CHAT_FAST_TEXT_ENABLE_RERANK", "false")
+    os.environ.setdefault("CHAT_FAST_TEXT_SUMMARY_CHARS_PER_DOC", "4000")
+    os.environ.setdefault("CHAT_FAST_TEXT_SUMMARY_MAX_TOKENS", "2600")
+    os.environ.setdefault("CHAT_FAST_TEXT_SUMMARY_MODEL", "")
 
 
 def as_int(value: str | None, default: int = 0) -> int:
@@ -71,7 +78,7 @@ def formula_processing_enabled() -> bool:
 
 
 def generic_processing_enabled() -> bool:
-    return as_bool(os.getenv("ENABLE_GENERIC_PROCESSING"), False)
+    return as_bool(os.getenv("ENABLE_GENERIC_PROCESSING"), True)
 
 
 def mineru_runtime_kwargs() -> dict[str, str]:

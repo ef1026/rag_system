@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
-from backend.config import as_int
+from backend.config import as_bool, as_int
 from backend.core.ids import safe_document_id
 from backend.core.models import DocumentAnswer, DocumentChatContext
 from backend.core.paths import document_path, document_storage_dir
@@ -41,6 +41,7 @@ from backend.services.conversation_service import (
 )
 from backend.services.citation_service import (
     collect_sources_for_query,
+    fast_text_chunks_from_storage,
     fallback_chunks_from_storage,
     map_retrieved_chunks_to_sources,
 )
@@ -61,6 +62,7 @@ from backend.services.synthesis_service import (
     answer_needs_fallback,
     collect_direct_context,
     direct_context_fallback,
+    synthesize_fast_text_summary_answer,
     synthesize_multi_document_answer,
 )
 from backend.services.source_utils import citation_metrics, dedupe_sources
@@ -106,6 +108,62 @@ def broad_query_kwargs(for_synthesis: bool) -> dict[str, int]:
             default_max_total_tokens,
         ),
     }
+
+
+def fast_text_query_kwargs(for_synthesis: bool) -> dict[str, int]:
+    if for_synthesis:
+        default_top_k = 36
+        default_chunk_top_k = 12
+        default_max_total_tokens = 16000
+    else:
+        default_top_k = 28
+        default_chunk_top_k = 8
+        default_max_total_tokens = 12000
+    return {
+        "top_k": as_int(os.getenv("CHAT_FAST_TEXT_RETRIEVAL_TOP_K"), default_top_k),
+        "chunk_top_k": as_int(
+            os.getenv("CHAT_FAST_TEXT_RETRIEVAL_CHUNK_TOP_K"),
+            default_chunk_top_k,
+        ),
+        "max_entity_tokens": as_int(
+            os.getenv("CHAT_FAST_TEXT_RETRIEVAL_MAX_ENTITY_TOKENS"),
+            5000,
+        ),
+        "max_relation_tokens": as_int(
+            os.getenv("CHAT_FAST_TEXT_RETRIEVAL_MAX_RELATION_TOKENS"),
+            5000,
+        ),
+        "max_total_tokens": as_int(
+            os.getenv("CHAT_FAST_TEXT_RETRIEVAL_MAX_TOTAL_TOKENS"),
+            default_max_total_tokens,
+        ),
+    }
+
+
+def query_kwargs_for_chat(request: ChatRequest, for_synthesis: bool) -> dict[str, int]:
+    if request.vlm_enhanced is False:
+        return fast_text_query_kwargs(for_synthesis)
+    return broad_query_kwargs(for_synthesis)
+
+
+def is_fast_text_request(request: ChatRequest) -> bool:
+    return request.vlm_enhanced is False
+
+
+def effective_query_mode_for_chat(request: ChatRequest) -> str:
+    if is_fast_text_request(request):
+        return (os.getenv("CHAT_FAST_TEXT_QUERY_MODE") or "naive").strip() or "naive"
+    return request.mode
+
+
+def fast_text_rerank_enabled() -> bool:
+    return as_bool(os.getenv("CHAT_FAST_TEXT_ENABLE_RERANK"), False)
+
+
+def effective_rerank_for_chat(request: ChatRequest, rerank_available: bool) -> bool:
+    if is_fast_text_request(request):
+        return rerank_available and fast_text_rerank_enabled()
+    return rerank_available
 
 
 def multi_document_query_concurrency() -> int:
@@ -174,6 +232,36 @@ def refresh_memory_candidates(conversation_id: str | None) -> None:
         extract_memories(MemoryExtractRequest(conversation_id=conversation_id, limit=5))
     except Exception as exc:
         logger.warning("Memory candidate extraction failed: %s", exc)
+
+
+async def collect_sources_for_chat_answer(
+    rag: Any,
+    document_id: str,
+    document_name: str,
+    query: str,
+    query_kwargs: dict[str, Any],
+    request: ChatRequest,
+) -> list[SourceItem]:
+    if request.vlm_enhanced is False and not as_bool(
+        os.getenv("CHAT_FAST_TEXT_LIVE_CITATIONS"),
+        False,
+    ):
+        chunks = fast_text_chunks_from_storage(document_id, query, query_kwargs)
+        sources = map_retrieved_chunks_to_sources(document_id, document_name, chunks)
+        logger.info(
+            "Chat fast-text citation sources collected from local storage document_id=%s count=%s live_citations=false",
+            document_id,
+            len(sources),
+        )
+        return sources
+
+    return await collect_sources_for_query(
+        rag=rag,
+        document_id=document_id,
+        document_name=document_name,
+        query=query,
+        query_kwargs=query_kwargs,
+    )
 
 
 def validate_chat_document_contexts(
@@ -333,15 +421,21 @@ async def query_single_document(
         timings["query_rewrite"] = time.perf_counter() - rewrite_started
 
         rerank_query_config = build_rerank_query_config(rag)
-        effective_enable_rerank = bool(rerank_query_config["enabled"])
+        effective_enable_rerank = effective_rerank_for_chat(
+            request,
+            bool(rerank_query_config["enabled"]),
+        )
+        effective_query_mode = effective_query_mode_for_chat(request)
         requested_vlm_enhanced = request.vlm_enhanced
         logger.info(
-            "Chat retrieval config: document_id=%s mode=%s rerank=%s rerank_requested=%s rerank_enabled=%s rerank_model=%s rerank_provider=%s rerank_model_func=%s configured_rerank_top_n=%s rerank_reason=%s vlm_enhanced=%s routing=direct for_synthesis=%s level=%s prompt_template=%s",
+            "Chat retrieval config: document_id=%s mode=%s effective_query_mode=%s rerank=%s rerank_requested=%s rerank_enabled=%s effective_enable_rerank=%s rerank_model=%s rerank_provider=%s rerank_model_func=%s configured_rerank_top_n=%s rerank_reason=%s vlm_enhanced=%s routing=direct for_synthesis=%s level=%s prompt_template=%s fast_text_strategy=%s",
             document_id,
             request.mode,
+            effective_query_mode,
             rerank_query_config["label"],
             rerank_query_config["requested"],
             rerank_query_config["enabled"],
+            effective_enable_rerank,
             rerank_query_config["model"] or "none",
             rerank_query_config["provider"] or "none",
             "not None" if rerank_query_config["model_func_available"] else "None",
@@ -351,6 +445,7 @@ async def query_single_document(
             for_synthesis,
             level_key,
             prompt_template_used,
+            "lightweight_query" if is_fast_text_request(request) else "default",
         )
         fallback_used = False
         answer_source_path = "text" if requested_vlm_enhanced is False else "vlm"
@@ -366,10 +461,10 @@ async def query_single_document(
                 + document_system_prompt
             )
             query_kwargs: dict[str, Any] = {
-                "mode": request.mode,
+                "mode": effective_query_mode,
                 "system_prompt": system_prompt,
                 "enable_rerank": effective_enable_rerank,
-                **broad_query_kwargs(for_synthesis),
+                **query_kwargs_for_chat(request, for_synthesis),
             }
             if requested_vlm_enhanced != "auto":
                 query_kwargs["vlm_enhanced"] = requested_vlm_enhanced
@@ -405,11 +500,11 @@ async def query_single_document(
                     answer = response_content_to_text(
                         await rag.aquery(
                             query,
-                            mode=request.mode,
+                            mode=effective_query_mode,
                             system_prompt=system_prompt,
                             vlm_enhanced=False,
                             enable_rerank=effective_enable_rerank,
-                            **broad_query_kwargs(for_synthesis),
+                            **query_kwargs_for_chat(request, for_synthesis),
                         )
                     )
                 except TypeError as error:
@@ -487,18 +582,19 @@ async def query_single_document(
         citation_started = time.perf_counter()
         source_query = user_question if answer_source_path.startswith("direct_context_fallback") else query
         source_query_kwargs: dict[str, Any] = {
-            "mode": request.mode,
+            "mode": effective_query_mode,
             "enable_rerank": effective_enable_rerank
             if not answer_source_path.startswith("direct_context_fallback")
             else False,
-            **broad_query_kwargs(for_synthesis),
+            **query_kwargs_for_chat(request, for_synthesis),
         }
-        sources = await collect_sources_for_query(
+        sources = await collect_sources_for_chat_answer(
             rag=rag,
             document_id=document_id,
             document_name=context.name,
             query=source_query,
             query_kwargs=source_query_kwargs,
+            request=request,
         )
         timings["citation_sources"] = time.perf_counter() - citation_started
         logger.info(
@@ -527,10 +623,13 @@ async def query_single_document(
 
 def build_direct_summary_document_answers(
     contexts: list[DocumentChatContext],
+    *,
+    max_context_chars: int | None = None,
+    answer_source_prefix: str = "direct_summary",
 ) -> tuple[list[DocumentAnswer], list[ChatPartialFailure]]:
     document_answers: list[DocumentAnswer] = []
     partial_failures: list[ChatPartialFailure] = []
-    max_context_chars = max(
+    max_context_chars = max_context_chars or max(
         1000,
         as_int(os.getenv("CHAT_SUMMARY_DIRECT_CONTEXT_CHARS"), 12000),
     )
@@ -587,13 +686,27 @@ def build_direct_summary_document_answers(
                 sources=sources,
                 vlm_image_paths=[],
                 fallback_used=False,
-                answer_source_path=f"direct_summary:{source_path}",
+                answer_source_path=f"{answer_source_prefix}:{source_path}",
                 prompt_template_used=prompt_template_name(1),
                 timings={"direct_context": time.perf_counter() - started},
             )
         )
 
     return document_answers, partial_failures
+
+
+def build_fast_text_summary_document_answers(
+    contexts: list[DocumentChatContext],
+) -> tuple[list[DocumentAnswer], list[ChatPartialFailure]]:
+    max_context_chars = max(
+        1000,
+        as_int(os.getenv("CHAT_FAST_TEXT_SUMMARY_CHARS_PER_DOC"), 4000),
+    )
+    return build_direct_summary_document_answers(
+        contexts,
+        max_context_chars=max_context_chars,
+        answer_source_prefix="fast_text_summary",
+    )
 
 
 async def query_multi_document_answers(
@@ -672,11 +785,18 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
     validate_started = time.perf_counter()
     document_ids = normalize_chat_document_ids(request)
     chat_mode = chat_mode_from_request(request)
+    summary_requested = is_summary_request(request.question)
     prompt_template_used = prompt_template_name(len(document_ids))
     logger.info(
-        "Chat request document_ids=%s legacy_document_id=%s",
+        "Chat request document_ids=%s legacy_document_id=%s chat_mode=%s is_summary_request=%s effective_query_mode=%s fast_text_strategy=%s",
         document_ids,
         request.document_id,
+        chat_mode,
+        summary_requested,
+        effective_query_mode_for_chat(request) if document_ids else "none",
+        "compact_summary" if is_fast_text_request(request) and summary_requested else (
+            "lightweight_query" if is_fast_text_request(request) else "default"
+        ),
     )
     conversation_id: str | None = None
     user_message_id: str | None = None
@@ -748,7 +868,17 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
     )
 
     try:
-        if len(contexts) == 1:
+        if is_fast_text_request(request) and summary_requested:
+            logger.info(
+                "Chat fast-text summary routing enabled document_ids=%s question=%r",
+                document_ids,
+                request.question,
+            )
+            document_answers, partial_failures = build_fast_text_summary_document_answers(
+                contexts
+            )
+            synthesis_source_path = "fast_text_summary_synthesis"
+        elif len(contexts) == 1:
             document_answer = await query_single_document(
                 request,
                 contexts[0],
@@ -831,7 +961,7 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 refresh_memory_candidates(conversation_id)
             return response
 
-        if is_summary_request(request.question):
+        elif summary_requested:
             logger.info(
                 "Chat summary direct routing enabled document_ids=%s question=%r",
                 document_ids,
@@ -860,13 +990,22 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             )
 
         synthesis_started = time.perf_counter()
-        answer = await synthesize_multi_document_answer(
-            request.question,
-            document_answers,
-            level_key,
-            level_prompt,
-            profile_prompt,
-        )
+        if is_fast_text_request(request) and summary_requested:
+            answer = await synthesize_fast_text_summary_answer(
+                request.question,
+                document_answers,
+                level_key,
+                level_prompt,
+                profile_prompt,
+            )
+        else:
+            answer = await synthesize_multi_document_answer(
+                request.question,
+                document_answers,
+                level_key,
+                level_prompt,
+                profile_prompt,
+            )
         timings["synthesis"] = time.perf_counter() - synthesis_started
         if answer_needs_fallback(answer):
             mark_user_message_failed(user_message_id, "empty_multi_document_answer")

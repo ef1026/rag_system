@@ -189,6 +189,182 @@ def test_fast_text_empty_answer_skips_duplicate_text_fallback(
     assert answer.answer_source_path == "direct_context_fallback:full_docs"
 
 
+def test_fast_text_uses_lightweight_query_and_storage_citations(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    fake_rag = FakeRAG(["answer"])
+    patch_query_single_document_ready(monkeypatch, tmp_path, fake_rag)
+    captured_fast_sources: dict[str, Any] = {}
+
+    def fail_live_citations(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("fast text should not run live citation retrieval")
+
+    def fake_fast_text_chunks(
+        document_id: str,
+        query: str,
+        query_kwargs: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        captured_fast_sources.update(
+            {
+                "document_id": document_id,
+                "query": query,
+                "query_kwargs": query_kwargs,
+            }
+        )
+        return [{"chunk_id": "chunk-fast", "content": "fast source"}]
+
+    def fake_map_sources(
+        document_id: str,
+        document_name: str,
+        chunks: list[dict[str, Any]],
+        limit: int | None = None,
+    ) -> list[SourceItem]:
+        assert chunks[0]["chunk_id"] == "chunk-fast"
+        return [
+            SourceItem(
+                id=f"{document_id}:chunk-fast:1",
+                document_id=document_id,
+                document_name=document_name,
+                chunk_id="chunk-fast",
+                text="fast source",
+            )
+        ][:limit]
+
+    monkeypatch.setattr(retrieval, "collect_sources_for_query", fail_live_citations)
+    monkeypatch.setattr(retrieval, "fast_text_chunks_from_storage", fake_fast_text_chunks)
+    monkeypatch.setattr(retrieval, "map_retrieved_chunks_to_sources", fake_map_sources)
+    monkeypatch.setattr(
+        retrieval,
+        "build_rerank_query_config",
+        lambda _rag: {
+            "enabled": True,
+            "label": "enabled",
+            "requested": True,
+            "model": "qwen3-rerank",
+            "provider": "aliyun",
+            "model_func_available": True,
+            "top_n": 10,
+            "reason": None,
+        },
+    )
+
+    answer = asyncio.run(
+        retrieval.query_single_document(
+            ChatRequest(
+                question="alpha",
+                document_id="a.pdf",
+                level="undergraduate",
+                mode="hybrid",
+                vlm_enhanced=False,
+            ),
+            make_context("a.pdf", tmp_path),
+            "undergraduate",
+            "level prompt",
+            "",
+            [],
+            False,
+        )
+    )
+
+    assert len(fake_rag.calls) == 1
+    assert fake_rag.calls[0]["mode"] == "naive"
+    assert fake_rag.calls[0]["enable_rerank"] is False
+    assert fake_rag.calls[0]["vlm_enhanced"] is False
+    assert fake_rag.calls[0]["top_k"] == 28
+    assert fake_rag.calls[0]["chunk_top_k"] == 8
+    assert fake_rag.calls[0]["max_total_tokens"] == 12000
+    assert captured_fast_sources["document_id"] == "a.pdf"
+    assert captured_fast_sources["query_kwargs"]["chunk_top_k"] == 8
+    assert answer.sources[0].chunk_id == "chunk-fast"
+
+
+def test_fast_text_summary_single_document_uses_compact_summary_without_rag(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    contexts = [make_context("a.pdf", tmp_path)]
+
+    def fail_get_rag(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("fast text summary should not initialize RAG")
+
+    async def fake_fast_summary(
+        _question: str,
+        document_answers: list[DocumentAnswer],
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> str:
+        assert [answer.answer_source_path for answer in document_answers] == [
+            "fast_text_summary:full_docs"
+        ]
+        assert document_answers[0].answer == "context a.pdf"
+        return "compact summary"
+
+    monkeypatch.setattr(retrieval, "validate_chat_document_contexts", lambda _ids: contexts)
+    monkeypatch.setattr(
+        retrieval,
+        "compile_personalization",
+        lambda **_kwargs: SimpleNamespace(
+            generation_prompt="",
+            retrieval_hints=[],
+            used_memories=[],
+        ),
+    )
+    monkeypatch.setattr(retrieval, "get_rag", fail_get_rag)
+    monkeypatch.setattr(
+        retrieval,
+        "collect_direct_context",
+        lambda document_id, max_chars=4000: (f"context {document_id}", "full_docs", []),
+    )
+    monkeypatch.setattr(
+        retrieval,
+        "fallback_chunks_from_storage",
+        lambda document_id, _kwargs: [
+            {"chunk_id": f"{document_id}-chunk", "content": f"context {document_id}"}
+        ],
+    )
+    monkeypatch.setattr(
+        retrieval,
+        "map_retrieved_chunks_to_sources",
+        lambda document_id, document_name, chunks, limit=None: [
+            SourceItem(
+                id=f"{document_id}:chunk:1",
+                document_id=document_id,
+                document_name=document_name,
+                chunk_id=chunks[0]["chunk_id"],
+                text=chunks[0]["content"],
+            )
+        ][:limit],
+    )
+    monkeypatch.setattr(
+        retrieval,
+        "synthesize_fast_text_summary_answer",
+        fake_fast_summary,
+    )
+    monkeypatch.setattr(retrieval, "select_related_images", lambda *_args: [])
+    monkeypatch.setattr(retrieval, "public_images_for_documents", lambda *_args: [])
+    monkeypatch.setattr(
+        retrieval,
+        "validate_answer_images",
+        lambda answer, related_images, _allowed_images: (answer, related_images, []),
+    )
+
+    response = asyncio.run(
+        retrieval.chat(
+            ChatRequest(
+                question="summary",
+                document_ids=["a.pdf"],
+                level="undergraduate",
+                mode="hybrid",
+                vlm_enhanced=False,
+            )
+        )
+    )
+
+    assert response.answer == "compact summary"
+    assert [document.document_id for document in response.documents_used] == ["a.pdf"]
+
+
 def test_auto_empty_answer_allows_one_text_fallback_before_direct_context(
     monkeypatch: Any,
     tmp_path: Path,
@@ -220,6 +396,49 @@ def test_auto_empty_answer_allows_one_text_fallback_before_direct_context(
     assert fake_rag.calls[1]["vlm_enhanced"] is False
     assert direct_calls == [("a.pdf", "解释概念")]
     assert answer.answer_source_path == "direct_context_fallback:full_docs"
+
+
+def test_multimodal_keeps_requested_mode_and_rerank(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    fake_rag = FakeRAG(["answer"])
+    patch_query_single_document_ready(monkeypatch, tmp_path, fake_rag)
+    monkeypatch.setattr(
+        retrieval,
+        "build_rerank_query_config",
+        lambda _rag: {
+            "enabled": True,
+            "label": "enabled",
+            "requested": True,
+            "model": "qwen3-rerank",
+            "provider": "aliyun",
+            "model_func_available": True,
+            "top_n": 10,
+            "reason": None,
+        },
+    )
+
+    asyncio.run(
+        retrieval.query_single_document(
+            ChatRequest(
+                question="alpha",
+                document_id="a.pdf",
+                level="undergraduate",
+                mode="hybrid",
+                vlm_enhanced="auto",
+            ),
+            make_context("a.pdf", tmp_path),
+            "undergraduate",
+            "level prompt",
+            "",
+            [],
+            False,
+        )
+    )
+
+    assert fake_rag.calls[0]["mode"] == "hybrid"
+    assert fake_rag.calls[0]["enable_rerank"] is True
 
 
 def test_summary_multi_document_chat_uses_direct_summary_route(
@@ -312,6 +531,99 @@ def test_summary_multi_document_chat_uses_direct_summary_route(
         "b.pdf",
     ]
     assert [source.document_id for source in response.sources] == ["a.pdf", "b.pdf"]
+
+
+def test_fast_text_summary_multi_document_uses_compact_synthesis(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    contexts = [make_context("a.pdf", tmp_path), make_context("b.pdf", tmp_path)]
+
+    def fail_query_single_document(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("fast text summary should not run per-document RAG query")
+
+    async def fail_legacy_synthesis(*_args: Any, **_kwargs: Any) -> str:
+        raise AssertionError("fast text summary should not use legacy synthesis")
+
+    async def fake_fast_summary(
+        _question: str,
+        document_answers: list[DocumentAnswer],
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> str:
+        assert [answer.answer_source_path for answer in document_answers] == [
+            "fast_text_summary:full_docs",
+            "fast_text_summary:full_docs",
+        ]
+        return "compact multi summary"
+
+    monkeypatch.setattr(retrieval, "validate_chat_document_contexts", lambda _ids: contexts)
+    monkeypatch.setattr(
+        retrieval,
+        "compile_personalization",
+        lambda **_kwargs: SimpleNamespace(
+            generation_prompt="",
+            retrieval_hints=[],
+            used_memories=[],
+        ),
+    )
+    monkeypatch.setattr(retrieval, "query_single_document", fail_query_single_document)
+    monkeypatch.setattr(
+        retrieval,
+        "collect_direct_context",
+        lambda document_id, max_chars=4000: (f"context {document_id}", "full_docs", []),
+    )
+    monkeypatch.setattr(
+        retrieval,
+        "fallback_chunks_from_storage",
+        lambda document_id, _kwargs: [
+            {"chunk_id": f"{document_id}-chunk", "content": f"context {document_id}"}
+        ],
+    )
+    monkeypatch.setattr(
+        retrieval,
+        "map_retrieved_chunks_to_sources",
+        lambda document_id, document_name, chunks, limit=None: [
+            SourceItem(
+                id=f"{document_id}:chunk:1",
+                document_id=document_id,
+                document_name=document_name,
+                chunk_id=chunks[0]["chunk_id"],
+                text=chunks[0]["content"],
+            )
+        ][:limit],
+    )
+    monkeypatch.setattr(retrieval, "synthesize_multi_document_answer", fail_legacy_synthesis)
+    monkeypatch.setattr(
+        retrieval,
+        "synthesize_fast_text_summary_answer",
+        fake_fast_summary,
+    )
+    monkeypatch.setattr(retrieval, "select_related_images", lambda *_args: [])
+    monkeypatch.setattr(retrieval, "public_images_for_documents", lambda *_args: [])
+    monkeypatch.setattr(
+        retrieval,
+        "validate_answer_images",
+        lambda answer, related_images, _allowed_images: (answer, related_images, []),
+    )
+
+    response = asyncio.run(
+        retrieval.chat(
+            ChatRequest(
+                question="summary",
+                document_ids=["a.pdf", "b.pdf"],
+                level="undergraduate",
+                mode="hybrid",
+                vlm_enhanced=False,
+            )
+        )
+    )
+
+    assert response.answer == "compact multi summary"
+    assert [document.document_id for document in response.documents_used] == [
+        "a.pdf",
+        "b.pdf",
+    ]
 
 
 def test_multi_document_query_concurrency_preserves_result_order(

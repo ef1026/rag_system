@@ -142,9 +142,9 @@ def build_fresh_document_rag(document_id: str, storage_dir: Path) -> RAGAnything
     return rag
 
 
-def build_model_functions():
+def build_model_functions(llm_model_override: str | None = None):
     qwen_api_key = os.getenv("QWEN_API_KEY")
-    llm_model = os.getenv("LLM_MODEL", "qwen-plus")
+    llm_model = llm_model_override or os.getenv("LLM_MODEL", "qwen-plus")
     llm_api_key = os.getenv("LLM_BINDING_API_KEY") or qwen_api_key
     llm_base_url = os.getenv(
         "LLM_BINDING_HOST", "https://dashscope.aliyuncs.com/compatible-mode/v1"

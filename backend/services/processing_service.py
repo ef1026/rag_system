@@ -171,6 +171,10 @@ def finalize_multimodal_summary(
         and (rag.config.enable_equation_processing or rag.config.enable_image_processing),
         **stats["formula"],
     )
+    summary["generic_status"] = status_from_counts(
+        enabled=generic_processing_enabled(),
+        **stats["generic"],
+    )
 
     attempted_total = sum(type_stats["attempted"] for type_stats in stats.values())
     failed_total = sum(type_stats["failed"] for type_stats in stats.values())

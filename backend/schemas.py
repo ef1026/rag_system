@@ -48,6 +48,7 @@ class ProcessResponse(BaseModel):
     table_status: str = "disabled"
     equation_status: str = "disabled"
     formula_status: str = "disabled"
+    generic_status: str = "disabled"
     skipped_multimodal_items_count: int = 0
     skipped_by_reason: dict[str, int] = Field(default_factory=dict)
     multimodal_warnings_count: int = 0
@@ -140,6 +141,7 @@ class RAGMultimodalStatus(BaseModel):
     table_processing: bool
     equation_processing: bool
     formula_processing: bool
+    generic_processing: bool
     vlm_model: str | None = None
 
 

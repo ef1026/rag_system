@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import time
 from typing import Any
 
 from fastapi import HTTPException
@@ -24,6 +26,7 @@ from backend.prompts.templates import (
     level_guidance,
     profile_prompt_prefix,
 )
+from backend.config import as_int
 from backend.rag.factory import build_model_functions
 from backend.rag.storage import read_json_dict, vdb_records_by_file
 
@@ -300,5 +303,95 @@ async def synthesize_multi_document_answer(
     answer = await llm_func(
         prompt,
         system_prompt=build_task_system_prompt(profile_prompt),
+    )
+    return response_content_to_text(answer)
+
+
+def build_fast_text_summary_prompt(
+    question: str,
+    document_answers: list[DocumentAnswer],
+    level_key: str,
+    level_prompt: str,
+    profile_prompt: str | None = None,
+) -> tuple[str, list[int]]:
+    chars_per_doc = max(
+        1000,
+        as_int(os.getenv("CHAT_FAST_TEXT_SUMMARY_CHARS_PER_DOC"), 4000),
+    )
+    context_chars_by_doc: list[int] = []
+    sections: list[str] = []
+    for index, document_answer in enumerate(document_answers, start=1):
+        context = document_answer.answer.strip()[:chars_per_doc]
+        context_chars_by_doc.append(len(context))
+        source_lines = []
+        for source in document_answer.sources[:6]:
+            page = f"p.{source.page}" if source.page else "page unknown"
+            source_lines.append(f"- {page}: {source.text[:180]}")
+        sources_text = "\n".join(source_lines) if source_lines else "- no mapped sources"
+        sections.append(
+            f"Document {index}: {document_answer.name} ({document_answer.document_id})\n"
+            f"Excerpt:\n{context}\n\n"
+            f"Available source snippets:\n{sources_text}"
+        )
+
+    profile_hint = (profile_prompt or "").strip()[:800]
+    profile_section = (
+        f"\nStyle/profile hints, use only for tone and difficulty:\n{profile_hint}\n"
+        if profile_hint
+        else ""
+    )
+    prompt = (
+        "You are a Chinese RAG assistant. Answer only from the provided document excerpts.\n"
+        "This is fast_text mode: be detailed enough for study, but keep the answer compact.\n"
+        "Do not mention images, do not invent page numbers, and do not add tasks the user did not ask for.\n"
+        "For multi-document answers, clearly label which document each major point comes from.\n\n"
+        f"User question:\n{question.strip()}\n\n"
+        f"Answer level:\n{level_guidance(level_key, level_prompt)}\n"
+        f"{profile_section}\n"
+        "Document excerpts:\n\n"
+        + "\n\n---\n\n".join(sections)
+        + "\n\nWrite the final answer in Chinese Markdown."
+    )
+    return prompt, context_chars_by_doc
+
+
+async def synthesize_fast_text_summary_answer(
+    question: str,
+    document_answers: list[DocumentAnswer],
+    level_key: str,
+    level_prompt: str,
+    profile_prompt: str | None = None,
+) -> str:
+    configured_model = (os.getenv("CHAT_FAST_TEXT_SUMMARY_MODEL") or "").strip()
+    model = configured_model or os.getenv("LLM_MODEL", "qwen-plus")
+    max_tokens = max(
+        800,
+        as_int(os.getenv("CHAT_FAST_TEXT_SUMMARY_MAX_TOKENS"), 2600),
+    )
+    llm_func, _vision_func = build_model_functions(configured_model or None)
+    prompt, context_chars_by_doc = build_fast_text_summary_prompt(
+        question,
+        document_answers,
+        level_key,
+        level_prompt,
+        profile_prompt,
+    )
+    started = time.perf_counter()
+    answer = await llm_func(
+        prompt,
+        system_prompt=(
+            "You are a concise Chinese RAG assistant. Use only the supplied excerpts "
+            "and produce a useful study answer."
+        ),
+        max_tokens=max_tokens,
+    )
+    elapsed = time.perf_counter() - started
+    logger.info(
+        "Fast-text summary synthesis completed prompt_chars=%s context_chars_by_doc=%s max_tokens=%s llm_elapsed=%.3fs model=%s",
+        len(prompt),
+        context_chars_by_doc,
+        max_tokens,
+        elapsed,
+        model,
     )
     return response_content_to_text(answer)

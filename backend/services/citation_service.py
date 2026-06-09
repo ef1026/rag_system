@@ -320,6 +320,83 @@ async def collect_sources_for_query(
         return []
 
 
+def fast_text_chunks_from_storage(
+    document_id: str,
+    query: str,
+    query_kwargs: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    chunk_limit = int((query_kwargs or {}).get("chunk_top_k") or DEFAULT_SOURCE_LIMIT)
+    chunk_limit = max(chunk_limit, DEFAULT_SOURCE_LIMIT)
+    chunks = storage_chunks_for_document(document_id)
+    terms = query_terms_for_storage_rank(query)
+    if not chunks or not terms:
+        return chunks[:chunk_limit]
+
+    scored_chunks: list[tuple[float, int, int, dict[str, Any]]] = []
+    for index, chunk in enumerate(chunks):
+        score = storage_chunk_query_score(str(chunk.get("content") or ""), terms)
+        if score <= 0:
+            continue
+        chunk_order = optional_int(chunk.get("chunk_order_index")) or index
+        scored_chunks.append((score, chunk_order, index, dict(chunk)))
+
+    if not scored_chunks:
+        return chunks[:chunk_limit]
+
+    scored_chunks.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return [chunk for _score, _order, _index, chunk in scored_chunks[:chunk_limit]]
+
+
+def storage_chunks_for_document(document_id: str) -> list[dict[str, Any]]:
+    normalized_document_id = safe_document_id(document_id)
+    storage_dir = document_storage_dir(normalized_document_id)
+    text_chunks = read_json_dict(storage_dir / "kv_store_text_chunks.json")
+    chunks: list[dict[str, Any]] = []
+    for chunk_id, chunk in text_chunks.items():
+        if not isinstance(chunk, dict):
+            continue
+        if chunk.get("file_path") and not same_document_file(
+            chunk.get("file_path"),
+            normalized_document_id,
+        ):
+            continue
+        chunks.append(
+            {
+                "chunk_id": chunk.get("_id") or chunk.get("id") or chunk_id,
+                "content": chunk.get("content", ""),
+                "file_path": chunk.get("file_path"),
+                "chunk_order_index": chunk.get("chunk_order_index", 0),
+                CITATION_ORIGIN_KEY: CITATION_ORIGIN_STORAGE_FALLBACK,
+            }
+        )
+    chunks.sort(key=lambda item: optional_int(item.get("chunk_order_index")) or 0)
+    return chunks
+
+
+def query_terms_for_storage_rank(query: str) -> list[str]:
+    normalized = normalize_text(query)
+    terms: set[str] = set()
+    terms.update(re.findall(r"[a-z0-9_]{2,}", normalized))
+    for token in re.findall(r"[\u4e00-\u9fff]{2,}", normalized):
+        terms.add(token)
+        for gram_size in (2, 3):
+            for index in range(0, max(len(token) - gram_size + 1, 0)):
+                terms.add(token[index : index + gram_size])
+    return sorted(terms, key=lambda term: (-len(term), term))
+
+
+def storage_chunk_query_score(content: str, terms: list[str]) -> float:
+    normalized = normalize_text(content)
+    if not normalized:
+        return 0.0
+    score = 0.0
+    for term in terms:
+        occurrences = normalized.count(term)
+        if occurrences:
+            score += occurrences * min(len(term), 8)
+    return score
+
+
 async def retrieved_chunks_from_lightrag(
     rag: Any,
     query: str,
@@ -380,29 +457,8 @@ def fallback_chunks_from_storage(
     document_id: str,
     query_kwargs: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    normalized_document_id = safe_document_id(document_id)
-    storage_dir = document_storage_dir(normalized_document_id)
-    text_chunks = read_json_dict(storage_dir / "kv_store_text_chunks.json")
     chunk_top_k = int((query_kwargs or {}).get("chunk_top_k") or DEFAULT_SOURCE_LIMIT)
-    chunks: list[dict[str, Any]] = []
-    for chunk_id, chunk in text_chunks.items():
-        if not isinstance(chunk, dict):
-            continue
-        if chunk.get("file_path") and not same_document_file(
-            chunk.get("file_path"),
-            normalized_document_id,
-        ):
-            continue
-        chunks.append(
-            {
-                "chunk_id": chunk.get("_id") or chunk.get("id") or chunk_id,
-                "content": chunk.get("content", ""),
-                "file_path": chunk.get("file_path"),
-                "chunk_order_index": chunk.get("chunk_order_index", 0),
-                CITATION_ORIGIN_KEY: CITATION_ORIGIN_STORAGE_FALLBACK,
-            }
-        )
-    chunks.sort(key=lambda item: int(item.get("chunk_order_index") or 0))
+    chunks = storage_chunks_for_document(document_id)
     return chunks[: max(chunk_top_k, DEFAULT_SOURCE_LIMIT)]
 
 

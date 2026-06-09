@@ -7,6 +7,7 @@ import type { MemoryCandidateSource, UserMemory } from "./types";
 
 const statuses = ["candidate", "active", "dismissed"] as const;
 const scopeTypes = ["global", "course", "document", "conversation"] as const;
+const sourceFilters = ["all", "conversation", "wrong_question"] as const;
 
 type MemoryDraft = {
   value: string;
@@ -14,10 +15,13 @@ type MemoryDraft = {
   scope_id: string;
 };
 
+type SourceFilter = (typeof sourceFilters)[number];
+
 export function MemoryReviewPanel() {
   const [memories, setMemories] = useState<UserMemory[]>([]);
   const [sources, setSources] = useState<MemoryCandidateSource[]>([]);
   const [selectedSourceKeys, setSelectedSourceKeys] = useState<Record<string, boolean>>({});
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [drafts, setDrafts] = useState<Record<string, MemoryDraft>>({});
   const [editingId, setEditingId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -34,16 +38,20 @@ export function MemoryReviewPanel() {
   const grouped = useMemo(() => {
     return statuses.map((status) => ({
       status,
-      memories: memories.filter((memory) => memory.status === status),
+      memories: dedupeMemories(memories.filter((memory) => memory.status === status)),
     }));
   }, [memories]);
 
+  const uniqueSources = useMemo(() => dedupeSources(sources), [sources]);
+
   const selectedSources = useMemo(
-    () => sources.filter((source) => selectedSourceKeys[sourceKey(source)]),
-    [selectedSourceKeys, sources],
+    () => uniqueSources.filter((source) => selectedSourceKeys[sourceKey(source)]),
+    [selectedSourceKeys, uniqueSources],
   );
 
   const selectedCount = selectedSources.length;
+  const allSourcesSelected =
+    uniqueSources.length > 0 && selectedCount === uniqueSources.length;
 
   async function loadMemories() {
     setIsLoading(true);
@@ -106,15 +114,11 @@ export function MemoryReviewPanel() {
     }));
   }
 
-  function selectAllSources() {
+  function toggleAllSources() {
     setSelectedSourceKeys(
-      Object.fromEntries(sources.map((source) => [sourceKey(source), true])),
-    );
-  }
-
-  function clearSelectedSources() {
-    setSelectedSourceKeys(
-      Object.fromEntries(sources.map((source) => [sourceKey(source), false])),
+      Object.fromEntries(
+        uniqueSources.map((source) => [sourceKey(source), !allSourcesSelected]),
+      ),
     );
   }
 
@@ -176,26 +180,22 @@ export function MemoryReviewPanel() {
           <p className="section-label">学习记忆</p>
           <h2>审核候选记忆</h2>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={isExtracting || isLoadingSources || selectedCount === 0}
-          onClick={() => void extractCandidates()}
-        >
-          {isExtracting ? "提取中..." : "从已选来源提取"}
-        </Button>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
       {notice ? <p className="chat-status">{notice}</p> : null}
       <MemorySourcePicker
-        sources={sources}
+        sources={uniqueSources}
         selectedSourceKeys={selectedSourceKeys}
         selectedCount={selectedCount}
+        allSourcesSelected={allSourcesSelected}
+        sourceFilter={sourceFilter}
         isLoading={isLoadingSources}
         onToggle={toggleSource}
-        onSelectAll={selectAllSources}
-        onClear={clearSelectedSources}
+        onToggleAll={toggleAllSources}
+        onFilterChange={setSourceFilter}
+        onExtract={() => void extractCandidates()}
+        isExtracting={isExtracting}
       />
       {isLoading ? <p className="empty-state">正在加载记忆...</p> : null}
 
@@ -238,80 +238,117 @@ function MemorySourcePicker({
   sources,
   selectedSourceKeys,
   selectedCount,
+  allSourcesSelected,
+  sourceFilter,
   isLoading,
   onToggle,
-  onSelectAll,
-  onClear,
+  onToggleAll,
+  onFilterChange,
+  onExtract,
+  isExtracting,
 }: {
   sources: MemoryCandidateSource[];
   selectedSourceKeys: Record<string, boolean>;
   selectedCount: number;
+  allSourcesSelected: boolean;
+  sourceFilter: SourceFilter;
   isLoading: boolean;
   onToggle: (source: MemoryCandidateSource) => void;
-  onSelectAll: () => void;
-  onClear: () => void;
+  onToggleAll: () => void;
+  onFilterChange: (filter: SourceFilter) => void;
+  onExtract: () => void;
+  isExtracting: boolean;
 }) {
-  const groupedSources = useMemo(
-    () =>
-      (["conversation", "wrong_question"] as const).map((sourceType) => ({
-        sourceType,
-        sources: sources.filter((source) => source.source_type === sourceType),
-      })),
+  const sourceCounts = useMemo(
+    () => ({
+      all: sources.length,
+      conversation: sources.filter((source) => source.source_type === "conversation").length,
+      wrong_question: sources.filter((source) => source.source_type === "wrong_question").length,
+    }),
     [sources],
+  );
+  const filteredSources = useMemo(
+    () =>
+      sourceFilter === "all"
+        ? sources
+        : sources.filter((source) => source.source_type === sourceFilter),
+    [sourceFilter, sources],
   );
 
   return (
     <section className="memory-source-panel" aria-label="候选来源">
       <div className="memory-source-toolbar">
         <div>
-          <strong>候选来源</strong>
-          <span>
-            已选择 {selectedCount} / {sources.length} 条聊天记录和错题
-          </span>
+          <strong>来源选择</strong>
+          <span>已选 {selectedCount} / {sources.length}</span>
         </div>
         <div className="memory-source-actions">
-          <Button type="button" variant="ghost" onClick={onSelectAll}>
-            全选
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isExtracting || isLoading || selectedCount === 0}
+            onClick={onExtract}
+          >
+            {isExtracting ? "提取中..." : "提取选中"}
           </Button>
-          <Button type="button" variant="ghost" onClick={onClear}>
-            清空
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isLoading || sources.length === 0}
+            onClick={onToggleAll}
+          >
+            {allSourcesSelected ? "全不选" : "全选"}
           </Button>
         </div>
+      </div>
+
+      <div className="memory-source-filters" role="tablist" aria-label="来源筛选">
+        {sourceFilters.map((filter) => (
+          <button
+            type="button"
+            key={filter}
+            className={filter === sourceFilter ? "active" : ""}
+            onClick={() => onFilterChange(filter)}
+          >
+            <span>{sourceFilterLabel(filter)}</span>
+            <strong>{sourceCounts[filter]}</strong>
+          </button>
+        ))}
       </div>
 
       {isLoading ? <p className="empty-state compact">正在加载候选来源...</p> : null}
       {!isLoading && sources.length === 0 ? (
         <p className="empty-state compact">暂无可加入候选的聊天记录或错题。</p>
       ) : null}
+      {!isLoading && sources.length > 0 && filteredSources.length === 0 ? (
+        <p className="empty-state compact">当前筛选下暂无来源。</p>
+      ) : null}
 
-      <div className="memory-source-groups">
-        {groupedSources.map((group) => (
-          <section className="memory-source-group" key={group.sourceType}>
-            <div className="memory-source-group-heading">
-              <h3>{sourceTypeLabel(group.sourceType)}</h3>
-              <span>{group.sources.length}</span>
-            </div>
-            <div className="memory-source-list">
-              {group.sources.map((source) => {
-                const key = sourceKey(source);
-                return (
-                  <label className="memory-source-item" key={key}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selectedSourceKeys[key])}
-                      onChange={() => onToggle(source)}
-                    />
-                    <span className="memory-source-main">
-                      <strong>{source.title}</strong>
-                      <small>{sourceMeta(source)}</small>
-                      <span>{source.preview || "暂无预览。"}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+      <div className="memory-source-list">
+        {filteredSources.map((source) => {
+          const key = sourceKey(source);
+          const selected = Boolean(selectedSourceKeys[key]);
+          return (
+            <label
+              className={`memory-source-item${selected ? " selected" : ""}`}
+              key={key}
+            >
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => onToggle(source)}
+              />
+              <span className="memory-source-main">
+                <span className="memory-source-title-row">
+                  <strong>{sourceTitle(source)}</strong>
+                  <em>{sourceTypeLabel(source.source_type)}</em>
+                </span>
+                <small>{sourceMeta(source)}</small>
+                <span>{source.preview || "暂无预览。"}</span>
+              </span>
+            </label>
+          );
+        })}
       </div>
     </section>
   );
@@ -342,8 +379,18 @@ function MemoryItem({
 }) {
   return (
     <article className="memory-item">
+      <div className="memory-item-heading">
+        <div className="memory-item-title">
+          <strong title={memory.key || memory.memory_type}>
+            {memory.key || memory.memory_type}
+          </strong>
+          <span>{memory.memory_type}</span>
+        </div>
+        <span className="memory-confidence">
+          {Math.round(memory.confidence * 100)}%
+        </span>
+      </div>
       <div className="memory-item-main">
-        <strong>{memory.key || memory.memory_type}</strong>
         {isEditing ? (
           <div className="memory-edit-form">
             <textarea
@@ -382,18 +429,20 @@ function MemoryItem({
           <p>{memory.value}</p>
         )}
       </div>
-      <dl className="memory-meta">
-        <MetaItem label="类型" value={memory.memory_type} />
-        <MetaItem label="置信度" value={`${Math.round(memory.confidence * 100)}%`} />
-        <MetaItem label="范围" value={formatScope(memory)} />
-        <MetaItem label="自动应用" value={memory.auto_apply ? "开" : "关"} />
+      <div className="memory-meta">
+        <span>{formatScope(memory)}</span>
+        <span>{memory.auto_apply ? "自动应用" : "手动应用"}</span>
         {memory.source_conversation_id ? (
-          <MetaItem label="来源对话" value={memory.source_conversation_id} />
+          <span title={memory.source_conversation_id}>
+            对话 {shortId(memory.source_conversation_id)}
+          </span>
         ) : null}
         {memory.evidence_message_ids.length ? (
-          <MetaItem label="证据消息" value={memory.evidence_message_ids.join(", ")} />
+          <span title={memory.evidence_message_ids.join(", ")}>
+            证据 {memory.evidence_message_ids.length}
+          </span>
         ) : null}
-      </dl>
+      </div>
       {memory.evidence ? <p className="memory-evidence">{memory.evidence}</p> : null}
       <div className="memory-actions">
         {isEditing ? (
@@ -427,15 +476,6 @@ function MemoryItem({
   );
 }
 
-function MetaItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd title={value}>{value}</dd>
-    </div>
-  );
-}
-
 function formatScope(memory: UserMemory) {
   return memory.scope_id
     ? `${scopeLabel(memory.scope_type)}:${memory.scope_id}`
@@ -453,6 +493,36 @@ function labelForStatus(status: (typeof statuses)[number]) {
   if (status === "candidate") return "候选";
   if (status === "active") return "已启用";
   return "已拒绝";
+}
+
+function dedupeSources(sources: MemoryCandidateSource[]) {
+  const result: MemoryCandidateSource[] = [];
+  const seen = new Set<string>();
+  for (const source of sources) {
+    const key = `${source.source_type}:${source.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(source);
+  }
+  return result;
+}
+
+function dedupeMemories(memories: UserMemory[]) {
+  const result: UserMemory[] = [];
+  const seen = new Set<string>();
+  for (const memory of memories) {
+    const key = [
+      memory.memory_type,
+      memory.key || "",
+      memory.scope_type,
+      memory.scope_id || "",
+      memory.value.slice(0, 160),
+    ].join(":");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(memory);
+  }
+  return result;
 }
 
 function mergeSelectedSources(
@@ -476,6 +546,19 @@ function sourceTypeLabel(sourceType: MemoryCandidateSource["source_type"]) {
   return sourceType === "conversation" ? "聊天记录" : "错题";
 }
 
+function sourceFilterLabel(filter: SourceFilter) {
+  if (filter === "conversation") return "聊天";
+  if (filter === "wrong_question") return "错题";
+  return "全部";
+}
+
+function sourceTitle(source: MemoryCandidateSource) {
+  const title = source.title.trim();
+  if (title && title !== "新对话") return title;
+  const preview = source.preview.replace(/^(用户|助手|错题)：/, "").trim();
+  return preview ? preview.slice(0, 34) : title || sourceTypeLabel(source.source_type);
+}
+
 function sourceMeta(source: MemoryCandidateSource) {
   const parts = [formatDate(source.updated_at || source.created_at)];
   if (source.source_type === "conversation") {
@@ -488,6 +571,11 @@ function sourceMeta(source: MemoryCandidateSource) {
     parts.push("已复习");
   }
   return parts.join(" / ");
+}
+
+function shortId(value: string) {
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
 function formatDate(value: string | null) {

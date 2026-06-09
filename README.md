@@ -194,7 +194,7 @@ The current FastAPI pipeline is:
 - Graph store: LightRAG graph data in `rag_storage/documents/<safe-document-key>/graph_chunk_entity_relation.graphml` plus entity/relation KV stores.
 - Retrieval mode: `/api/chat` defaults to `hybrid`; the frontend currently sends `mode: "hybrid"`. Chat requires `document_id` and loads only that document's scoped storage.
 - VLM enhanced query: enabled automatically when `ENABLE_MULTIMODAL=true`, image processing is enabled, and a vision model function is available. If no valid images are found in retrieved context, RAG-Anything falls back to normal text query.
-- Rerank: controlled by `ENABLE_RERANK`, `RERANK_BINDING`, `RERANK_MODEL`, `RERANK_BINDING_API_KEY`, optional `RERANK_BASE_URL`, and optional `RERANK_TOP_N`. Default is disabled. If rerank is requested but model/provider/key initialization is unavailable, chat automatically passes `enable_rerank=false` and continues without rerank.
+- Rerank: controlled by `ENABLE_RERANK`, `RERANK_BINDING`, `RERANK_MODEL`, `RERANK_BINDING_API_KEY`, optional `RERANK_BASE_URL`, and optional `RERANK_TOP_N`. Default is enabled in the backend. If rerank is requested but model/provider/key initialization is unavailable, chat automatically passes `enable_rerank=false` and continues without rerank.
 - Sources/citations: document preview sources are extracted from MinerU `content_list`. Chat responses now return retrieval evidence in `sources`, including document id/name, chunk id, rank, page metadata when it can be mapped from `source_map.v1.json`, and match metadata. These are retrieval evidence pool citations, not claim-level citations. If LightRAG raw retrieval chunks are unavailable, the backend may return `storage_fallback` source items from document chunks; those are explicitly marked as fallback snippets rather than retrieval-ranked evidence. `source_map.v1.json` is rebuilt after successful document processing and is lazily generated on chat for older processed documents that do not have it yet.
 
 Document-scoped retrieval:
@@ -217,22 +217,21 @@ Development status endpoint:
 curl http://127.0.0.1:8000/api/rag/status
 ```
 
-Stable no-rerank mode:
-
-```env
-ENABLE_RERANK=false
-RERANK_MODEL=
-```
-
-To enable remote rerank, configure a supported LightRAG rerank provider on the backend only:
+Default backend rerank mode:
 
 ```env
 ENABLE_RERANK=true
 RERANK_BINDING=aliyun
-RERANK_MODEL=gte-rerank-v2
+RERANK_MODEL=qwen3-rerank
 RERANK_BINDING_API_KEY=your_backend_only_key
-# RERANK_BASE_URL=
-# RERANK_TOP_N=20
+# RERANK_TOP_N=10
+```
+
+To disable rerank explicitly:
+
+```env
+ENABLE_RERANK=false
+RERANK_MODEL=
 ```
 
 For DashScope/Aliyun, `RERANK_BINDING_API_KEY` may reuse the same DashScope key as `QWEN_API_KEY` if that key has access to the rerank model. Keeping `RERANK_BINDING_API_KEY` separate is recommended so the frontend never receives any LLM, embedding, vector DB, database, or rerank key.
@@ -245,17 +244,33 @@ For DashScope/Aliyun, `RERANK_BINDING_API_KEY` may reuse the same DashScope key 
     "default_mode": "hybrid",
     "rerank_requested": true,
     "rerank_enabled": true,
-    "rerank_model": "gte-rerank-v2",
+    "rerank_model": "qwen3-rerank",
     "rerank_provider": "aliyun",
     "rerank_model_loaded": true,
     "rerank_last_error": null,
     "reason": null,
-    "rerank_top_n": 20
+    "rerank_top_n": 10
   }
 }
 ```
 
 If rerank is requested but unavailable, `rerank_requested` remains `true`, `rerank_enabled` is `false`, and `reason` is set to values such as `missing_model`, `missing_api_key`, or `provider_init_failed`.
+
+Fast text mode uses a lower-latency backend route. It keeps rerank available for
+the rest of the system, but defaults fast text queries to a lighter retrieval
+mode and compact summary synthesis:
+
+```env
+CHAT_FAST_TEXT_QUERY_MODE=naive
+CHAT_FAST_TEXT_ENABLE_RERANK=false
+CHAT_FAST_TEXT_SUMMARY_CHARS_PER_DOC=4000
+CHAT_FAST_TEXT_SUMMARY_MAX_TOKENS=2600
+CHAT_FAST_TEXT_SUMMARY_MODEL=
+```
+
+Set `CHAT_FAST_TEXT_ENABLE_RERANK=true` only when you prefer rerank quality over
+latency in fast text mode. Leave `CHAT_FAST_TEXT_SUMMARY_MODEL` empty to reuse
+`LLM_MODEL`, or set it to a faster backend-only text model.
 
 查看 MinerU 实际命令：
 
