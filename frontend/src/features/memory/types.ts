@@ -35,6 +35,25 @@ export type UserMemoryPatch = Partial<{
   auto_apply: boolean;
 }>;
 
+export type MemoryCandidateSource = {
+  id: string;
+  source_type: "conversation" | "wrong_question";
+  title: string;
+  preview: string;
+  created_at: string;
+  updated_at: string | null;
+  message_count: number;
+  document_ids: string[];
+  reviewed_at: string | null;
+};
+
+export type MemoryExtractRequest = Partial<{
+  conversation_id: string;
+  conversation_ids: string[];
+  wrong_question_ids: string[];
+  limit: number;
+}>;
+
 export type MemoryExtractResponse = {
   created_count: number;
   memories: UserMemory[];

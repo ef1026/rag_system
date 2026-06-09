@@ -454,9 +454,23 @@ class UserMemoryPatch(BaseModel):
     auto_apply: bool | None = None
 
 
+class MemoryCandidateSource(BaseModel):
+    id: str
+    source_type: Literal["conversation", "wrong_question"]
+    title: str
+    preview: str
+    created_at: str
+    updated_at: str | None = None
+    message_count: int = 0
+    document_ids: list[str] = Field(default_factory=list)
+    reviewed_at: str | None = None
+
+
 class MemoryExtractRequest(BaseModel):
     conversation_id: str | None = None
-    limit: int = 10
+    conversation_ids: list[str] = Field(default_factory=list)
+    wrong_question_ids: list[str] = Field(default_factory=list)
+    limit: int = 50
 
 
 class MemoryExtractResponse(BaseModel):

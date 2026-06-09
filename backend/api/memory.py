@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from backend.schemas import (
     CacheResponse,
+    MemoryCandidateSource,
     MemoryExtractRequest,
     MemoryExtractResponse,
     UserMemory,
@@ -14,6 +15,7 @@ from backend.services.memory_service import (
     delete_memory,
     dismiss_memory,
     extract_memories,
+    list_memory_candidate_sources,
     list_memories,
     patch_memory,
 )
@@ -24,6 +26,11 @@ router = APIRouter()
 @router.get("/api/memory", response_model=list[UserMemory])
 async def read_memories(status: str | None = None) -> list[UserMemory]:
     return list_memories(status)
+
+
+@router.get("/api/memory/sources", response_model=list[MemoryCandidateSource])
+async def read_memory_candidate_sources() -> list[MemoryCandidateSource]:
+    return list_memory_candidate_sources()
 
 
 @router.post("/api/memory/extract", response_model=MemoryExtractResponse)

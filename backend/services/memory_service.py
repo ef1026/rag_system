@@ -11,13 +11,21 @@ from fastapi import HTTPException
 from backend.core.ids import safe_document_id
 from backend.prompts.memory_context import build_memory_prompt_context
 from backend.schemas import (
+    ConversationMessage,
+    MemoryCandidateSource,
     MemoryExtractRequest,
     MemoryExtractResponse,
     UserMemory,
     UserMemoryPatch,
+    WrongQuestion,
 )
-from backend.services.conversation_service import list_messages, read_conversation
+from backend.services.conversation_service import (
+    list_conversations,
+    list_messages,
+    read_conversation,
+)
 from backend.services.profile_service import get_profile
+from backend.services.quiz_service import list_wrong_questions, read_wrong_question
 from backend.storage.sqlite import metadata_connection
 
 MEMORY_COLUMNS = (
@@ -67,6 +75,50 @@ def list_memories(status: str | None = None) -> list[UserMemory]:
                 (profile_id,),
             ).fetchall()
     return [_memory_from_row(dict(row)) for row in rows]
+
+
+def list_memory_candidate_sources() -> list[MemoryCandidateSource]:
+    sources: list[MemoryCandidateSource] = []
+    for conversation in list_conversations():
+        messages = [
+            message
+            for message in list_messages(conversation.id)
+            if message.status == "sent" and message.content.strip()
+        ]
+        if not messages:
+            continue
+        sources.append(
+            MemoryCandidateSource(
+                id=conversation.id,
+                source_type="conversation",
+                title=conversation.title,
+                preview=_conversation_preview(messages),
+                created_at=conversation.created_at,
+                updated_at=conversation.updated_at,
+                message_count=len(messages),
+                document_ids=conversation.document_ids,
+            )
+        )
+
+    for wrong_question in list_wrong_questions(None):
+        sources.append(
+            MemoryCandidateSource(
+                id=wrong_question.id,
+                source_type="wrong_question",
+                title=_clip(wrong_question.prompt, 80),
+                preview=_wrong_question_value(wrong_question, limit=180),
+                created_at=wrong_question.created_at,
+                updated_at=wrong_question.reviewed_at or wrong_question.created_at,
+                message_count=1,
+                reviewed_at=wrong_question.reviewed_at,
+            )
+        )
+
+    return sorted(
+        sources,
+        key=lambda source: source.updated_at or source.created_at,
+        reverse=True,
+    )
 
 
 def patch_memory(memory_id: str, payload: UserMemoryPatch) -> UserMemory:
@@ -148,9 +200,19 @@ def delete_memory(memory_id: str) -> None:
 
 
 def extract_memories(payload: MemoryExtractRequest) -> MemoryExtractResponse:
-    limit = max(1, min(int(payload.limit or 10), 25))
-    conversation_ids = [_optional_text(payload.conversation_id)] if payload.conversation_id else []
-    candidates = _candidate_specs(conversation_ids=[item for item in conversation_ids if item])
+    conversation_ids = _normalize_id_list(
+        [
+            *([payload.conversation_id] if payload.conversation_id else []),
+            *payload.conversation_ids,
+        ],
+        max_items=200,
+    )
+    wrong_question_ids = _normalize_id_list(payload.wrong_question_ids, max_items=200)
+    limit = max(1, min(int(payload.limit or 50), 200))
+    candidates = _candidate_specs(
+        conversation_ids=conversation_ids,
+        wrong_question_ids=wrong_question_ids,
+    )
     created: list[UserMemory] = []
     for spec in candidates[:limit]:
         memory = _upsert_candidate(**spec)
@@ -235,6 +297,7 @@ def read_memory(memory_id: str) -> UserMemory:
 def _candidate_specs(
     *,
     conversation_ids: list[str],
+    wrong_question_ids: list[str],
 ) -> list[dict[str, Any]]:
     conversations = []
     if conversation_ids:
@@ -247,6 +310,9 @@ def _candidate_specs(
     for conversation in conversations:
         messages = list_messages(conversation.id)
         user_messages = [message for message in messages if message.role == "user"]
+        conversation_spec = _conversation_candidate_spec(conversation, messages)
+        if conversation_spec:
+            specs.append(conversation_spec)
         if not user_messages:
             continue
         combined = "\n".join(message.content for message in user_messages)
@@ -324,7 +390,90 @@ def _candidate_specs(
                     "evidence_message_ids": evidence_message_ids,
                 }
             )
+    for wrong_question_id in wrong_question_ids:
+        wrong_question_spec = _wrong_question_candidate_spec(
+            read_wrong_question(wrong_question_id)
+        )
+        if wrong_question_spec:
+            specs.append(wrong_question_spec)
     return specs
+
+
+def _conversation_candidate_spec(
+    conversation: Any,
+    messages: list[ConversationMessage],
+) -> dict[str, Any] | None:
+    evidence_messages = [
+        message
+        for message in messages
+        if message.status == "sent" and message.content.strip()
+    ]
+    if not evidence_messages:
+        return None
+    scoped_type, scoped_id = _scope_from_conversation(conversation)
+    evidence = _evidence_from_messages(evidence_messages, max_messages=6, limit=180)
+    return {
+        "memory_type": "chat_record",
+        "key": f"chat_{conversation.id}",
+        "value": (
+            f"聊天记录「{conversation.title}」包含可复用的学习上下文："
+            f"{_conversation_preview(evidence_messages, limit=360)}"
+        ),
+        "confidence": 0.56,
+        "source_conversation_id": conversation.id,
+        "evidence": evidence,
+        "scope_type": scoped_type,
+        "scope_id": scoped_id,
+        "evidence_message_ids": [message.id for message in evidence_messages[:6]],
+    }
+
+
+def _wrong_question_candidate_spec(
+    wrong_question: WrongQuestion,
+) -> dict[str, Any] | None:
+    value = _wrong_question_value(wrong_question, limit=900)
+    if not value:
+        return None
+    scope_type, scope_id = _scope_from_conversation_id(wrong_question.conversation_id)
+    return {
+        "memory_type": "wrong_question",
+        "key": f"wrong_{wrong_question.id}",
+        "value": value,
+        "confidence": 0.84 if not wrong_question.reviewed_at else 0.72,
+        "source_conversation_id": wrong_question.conversation_id,
+        "evidence": _clip(value, 360),
+        "scope_type": scope_type,
+        "scope_id": scope_id,
+        "evidence_message_ids": _normalize_source_message_ids(
+            wrong_question.source_message_ids
+        ),
+    }
+
+
+def _wrong_question_value(wrong_question: WrongQuestion, *, limit: int) -> str:
+    correct_choice = _choice_text(
+        wrong_question.choices,
+        wrong_question.correct_choice_id,
+    )
+    selected_choice = _choice_text(
+        wrong_question.choices,
+        wrong_question.selected_choice_id,
+    )
+    value = (
+        f"错题：{wrong_question.prompt}\n"
+        f"用户错选：{selected_choice}\n"
+        f"正确答案：{correct_choice}\n"
+        f"解析：{wrong_question.explanation}"
+    )
+    return _clip(value, limit)
+
+
+def _choice_text(choices: list[Any], choice_id: str) -> str:
+    normalized_id = str(choice_id or "").strip()
+    for choice in choices:
+        if getattr(choice, "id", "") == normalized_id:
+            return str(getattr(choice, "text", "") or normalized_id)
+    return normalized_id or "未记录"
 
 
 def _upsert_candidate(
@@ -516,6 +665,16 @@ def _scope_from_conversation(conversation: Any) -> tuple[str, str | None]:
     return "conversation", conversation.id
 
 
+def _scope_from_conversation_id(conversation_id: str | None) -> tuple[str, str | None]:
+    normalized_id = _optional_text(conversation_id)
+    if not normalized_id:
+        return "global", None
+    try:
+        return _scope_from_conversation(read_conversation(normalized_id))
+    except HTTPException:
+        return "conversation", normalized_id
+
+
 def _recent_conversations(limit: int) -> list[Any]:
     profile_id = _profile_id()
     with metadata_connection() as connection:
@@ -600,11 +759,28 @@ def _memory_from_row(row: dict[str, Any]) -> UserMemory:
     )
 
 
-def _evidence_from_messages(messages: list[Any]) -> str:
+def _conversation_preview(
+    messages: list[ConversationMessage],
+    *,
+    limit: int = 220,
+) -> str:
     snippets = []
-    for message in messages[:3]:
+    for message in messages[-6:]:
+        role = "用户" if message.role == "user" else "助手"
+        snippets.append(f"{role}：{_clip(message.content, 120)}")
+    return _clip(" / ".join(snippets), limit)
+
+
+def _evidence_from_messages(
+    messages: list[Any],
+    *,
+    max_messages: int = 3,
+    limit: int = 120,
+) -> str:
+    snippets = []
+    for message in messages[:max_messages]:
         text = " ".join(str(message.content).split())
-        snippets.append(text[:120])
+        snippets.append(_clip(text, limit))
     return " | ".join(snippets)
 
 
@@ -642,6 +818,19 @@ def _normalize_string_list(value: Any, max_items: int = 20) -> list[str]:
     return items
 
 
+def _normalize_id_list(value: Any, max_items: int = 100) -> list[str]:
+    return _normalize_string_list(value, max_items=max_items)
+
+
+def _normalize_source_message_ids(value: Any) -> list[str]:
+    normalized = []
+    for item in _normalize_string_list(value, max_items=12):
+        message_id = item.removeprefix("learn_")
+        if message_id.startswith("msg_") or message_id:
+            normalized.append(message_id)
+    return normalized
+
+
 def _load_json_list(value: Any) -> list[str]:
     if not value:
         return []
@@ -673,6 +862,13 @@ def _optional_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _clip(value: Any, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return f"{text[: max(0, limit - 1)]}..."
 
 
 def _require_id(value: str) -> str:

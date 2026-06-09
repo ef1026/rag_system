@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -42,11 +43,13 @@ def main() -> None:
         delete_memory,
         dismiss_memory,
         extract_memories,
+        list_memory_candidate_sources,
         list_memories,
         patch_memory,
         select_relevant_memories,
     )
     from backend.services.feedback_service import record_profile_feedback
+    from backend.storage.sqlite import metadata_connection
 
     try:
         conversation = create_conversation(
@@ -88,6 +91,66 @@ def main() -> None:
             level="undergraduate",
             mode="hybrid",
             chat_mode="multimodal",
+        )
+
+        with metadata_connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO wrong_questions (
+                    id, profile_id, quiz_session_id, conversation_id, question_id,
+                    prompt, choices_json, selected_choice_id, correct_choice_id,
+                    explanation, source_message_ids_json, related_images_json,
+                    created_at, reviewed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                """,
+                (
+                    "wrong_e2e",
+                    conversation.profile_id,
+                    "quiz_e2e",
+                    conversation.id,
+                    "qq_e2e",
+                    "Which condition makes the sampled signal alias?",
+                    json.dumps(
+                        [
+                            {"id": "A", "text": "Sampling below Nyquist"},
+                            {"id": "B", "text": "Sampling exactly at zero"},
+                        ],
+                        ensure_ascii=False,
+                    ),
+                    "B",
+                    "A",
+                    "Aliasing appears when the sampling rate is below Nyquist.",
+                    json.dumps([assistant.id], ensure_ascii=False),
+                    "[]",
+                    assistant.created_at,
+                ),
+            )
+
+        candidate_sources = list_memory_candidate_sources()
+        assert any(
+            source.source_type == "conversation" and source.id == conversation.id
+            for source in candidate_sources
+        )
+        assert any(
+            source.source_type == "wrong_question" and source.id == "wrong_e2e"
+            for source in candidate_sources
+        )
+
+        selected_extract = extract_memories(
+            MemoryExtractRequest(
+                conversation_ids=[conversation.id],
+                wrong_question_ids=["wrong_e2e"],
+                limit=20,
+            )
+        )
+        assert any(
+            memory.memory_type == "chat_record"
+            for memory in selected_extract.memories
+        )
+        assert any(
+            memory.memory_type == "wrong_question"
+            for memory in selected_extract.memories
         )
 
         assert first_user.id == "client_user_1"

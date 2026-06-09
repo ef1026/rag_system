@@ -1,17 +1,22 @@
 import { request } from "@/lib/api";
-import type { MemoryExtractResponse, UserMemory, UserMemoryPatch } from "./types";
+import type {
+  MemoryCandidateSource,
+  MemoryExtractRequest,
+  MemoryExtractResponse,
+  UserMemory,
+  UserMemoryPatch,
+} from "./types";
 
 export const memoryApi = {
   list: (status?: string) =>
     request<UserMemory[]>(
       `/api/memory${status ? `?status=${encodeURIComponent(status)}` : ""}`,
     ),
-  extract: (conversationId?: string) =>
+  sources: () => request<MemoryCandidateSource[]>("/api/memory/sources"),
+  extract: (payload: MemoryExtractRequest = {}) =>
     request<MemoryExtractResponse>("/api/memory/extract", {
       method: "POST",
-      body: JSON.stringify({
-        ...(conversationId ? { conversation_id: conversationId } : {}),
-      }),
+      body: JSON.stringify(payload),
     }),
   accept: (memoryId: string) =>
     request<UserMemory>(`/api/memory/${encodeURIComponent(memoryId)}/accept`, {

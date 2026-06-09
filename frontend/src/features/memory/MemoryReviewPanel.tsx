@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { memoryApi } from "./api";
-import type { UserMemory } from "./types";
+import type { MemoryCandidateSource, UserMemory } from "./types";
 
 const statuses = ["candidate", "active", "dismissed"] as const;
 const scopeTypes = ["global", "course", "document", "conversation"] as const;
@@ -16,15 +16,19 @@ type MemoryDraft = {
 
 export function MemoryReviewPanel() {
   const [memories, setMemories] = useState<UserMemory[]>([]);
+  const [sources, setSources] = useState<MemoryCandidateSource[]>([]);
+  const [selectedSourceKeys, setSelectedSourceKeys] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, MemoryDraft>>({});
   const [editingId, setEditingId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingSources, setIsLoadingSources] = useState(true);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
     void loadMemories();
+    void loadSources();
   }, []);
 
   const grouped = useMemo(() => {
@@ -33,6 +37,13 @@ export function MemoryReviewPanel() {
       memories: memories.filter((memory) => memory.status === status),
     }));
   }, [memories]);
+
+  const selectedSources = useMemo(
+    () => sources.filter((source) => selectedSourceKeys[sourceKey(source)]),
+    [selectedSourceKeys, sources],
+  );
+
+  const selectedCount = selectedSources.length;
 
   async function loadMemories() {
     setIsLoading(true);
@@ -46,12 +57,38 @@ export function MemoryReviewPanel() {
     }
   }
 
+  async function loadSources() {
+    setIsLoadingSources(true);
+    setError("");
+    try {
+      const nextSources = await memoryApi.sources();
+      setSources(nextSources);
+      setSelectedSourceKeys((current) => mergeSelectedSources(current, nextSources));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "候选来源加载失败。");
+    } finally {
+      setIsLoadingSources(false);
+    }
+  }
+
   async function extractCandidates() {
+    if (!selectedSources.length) {
+      setError("请先选择至少一条聊天记录或错题。");
+      return;
+    }
     setIsExtracting(true);
     setError("");
     setNotice("");
     try {
-      const result = await memoryApi.extract();
+      const result = await memoryApi.extract({
+        conversation_ids: selectedSources
+          .filter((source) => source.source_type === "conversation")
+          .map((source) => source.id),
+        wrong_question_ids: selectedSources
+          .filter((source) => source.source_type === "wrong_question")
+          .map((source) => source.id),
+        limit: Math.max(50, selectedSources.length * 4),
+      });
       setNotice(`已创建或刷新 ${result.created_count} 条候选记忆。`);
       await loadMemories();
     } catch (nextError) {
@@ -59,6 +96,26 @@ export function MemoryReviewPanel() {
     } finally {
       setIsExtracting(false);
     }
+  }
+
+  function toggleSource(source: MemoryCandidateSource) {
+    const key = sourceKey(source);
+    setSelectedSourceKeys((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
+
+  function selectAllSources() {
+    setSelectedSourceKeys(
+      Object.fromEntries(sources.map((source) => [sourceKey(source), true])),
+    );
+  }
+
+  function clearSelectedSources() {
+    setSelectedSourceKeys(
+      Object.fromEntries(sources.map((source) => [sourceKey(source), false])),
+    );
   }
 
   function startEditing(memory: UserMemory) {
@@ -122,15 +179,24 @@ export function MemoryReviewPanel() {
         <Button
           type="button"
           variant="secondary"
-          disabled={isExtracting}
+          disabled={isExtracting || isLoadingSources || selectedCount === 0}
           onClick={() => void extractCandidates()}
         >
-          {isExtracting ? "提取中..." : "提取候选"}
+          {isExtracting ? "提取中..." : "从已选来源提取"}
         </Button>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
       {notice ? <p className="chat-status">{notice}</p> : null}
+      <MemorySourcePicker
+        sources={sources}
+        selectedSourceKeys={selectedSourceKeys}
+        selectedCount={selectedCount}
+        isLoading={isLoadingSources}
+        onToggle={toggleSource}
+        onSelectAll={selectAllSources}
+        onClear={clearSelectedSources}
+      />
       {isLoading ? <p className="empty-state">正在加载记忆...</p> : null}
 
       <div className="memory-groups">
@@ -161,6 +227,89 @@ export function MemoryReviewPanel() {
                 ))}
               </div>
             )}
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MemorySourcePicker({
+  sources,
+  selectedSourceKeys,
+  selectedCount,
+  isLoading,
+  onToggle,
+  onSelectAll,
+  onClear,
+}: {
+  sources: MemoryCandidateSource[];
+  selectedSourceKeys: Record<string, boolean>;
+  selectedCount: number;
+  isLoading: boolean;
+  onToggle: (source: MemoryCandidateSource) => void;
+  onSelectAll: () => void;
+  onClear: () => void;
+}) {
+  const groupedSources = useMemo(
+    () =>
+      (["conversation", "wrong_question"] as const).map((sourceType) => ({
+        sourceType,
+        sources: sources.filter((source) => source.source_type === sourceType),
+      })),
+    [sources],
+  );
+
+  return (
+    <section className="memory-source-panel" aria-label="候选来源">
+      <div className="memory-source-toolbar">
+        <div>
+          <strong>候选来源</strong>
+          <span>
+            已选择 {selectedCount} / {sources.length} 条聊天记录和错题
+          </span>
+        </div>
+        <div className="memory-source-actions">
+          <Button type="button" variant="ghost" onClick={onSelectAll}>
+            全选
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClear}>
+            清空
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? <p className="empty-state compact">正在加载候选来源...</p> : null}
+      {!isLoading && sources.length === 0 ? (
+        <p className="empty-state compact">暂无可加入候选的聊天记录或错题。</p>
+      ) : null}
+
+      <div className="memory-source-groups">
+        {groupedSources.map((group) => (
+          <section className="memory-source-group" key={group.sourceType}>
+            <div className="memory-source-group-heading">
+              <h3>{sourceTypeLabel(group.sourceType)}</h3>
+              <span>{group.sources.length}</span>
+            </div>
+            <div className="memory-source-list">
+              {group.sources.map((source) => {
+                const key = sourceKey(source);
+                return (
+                  <label className="memory-source-item" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedSourceKeys[key])}
+                      onChange={() => onToggle(source)}
+                    />
+                    <span className="memory-source-main">
+                      <strong>{source.title}</strong>
+                      <small>{sourceMeta(source)}</small>
+                      <span>{source.preview || "暂无预览。"}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </section>
         ))}
       </div>
@@ -304,4 +453,51 @@ function labelForStatus(status: (typeof statuses)[number]) {
   if (status === "candidate") return "候选";
   if (status === "active") return "已启用";
   return "已拒绝";
+}
+
+function mergeSelectedSources(
+  current: Record<string, boolean>,
+  sources: MemoryCandidateSource[],
+): Record<string, boolean> {
+  const sourceKeys = sources.map(sourceKey);
+  if (Object.keys(current).length === 0) {
+    return Object.fromEntries(sourceKeys.map((key) => [key, true] as const));
+  }
+  return Object.fromEntries(
+    sourceKeys.map((key) => [key, current[key] ?? true] as const),
+  );
+}
+
+function sourceKey(source: MemoryCandidateSource) {
+  return `${source.source_type}:${source.id}`;
+}
+
+function sourceTypeLabel(sourceType: MemoryCandidateSource["source_type"]) {
+  return sourceType === "conversation" ? "聊天记录" : "错题";
+}
+
+function sourceMeta(source: MemoryCandidateSource) {
+  const parts = [formatDate(source.updated_at || source.created_at)];
+  if (source.source_type === "conversation") {
+    parts.push(`${source.message_count} 条消息`);
+  }
+  if (source.document_ids.length) {
+    parts.push(`${source.document_ids.length} 个文档`);
+  }
+  if (source.reviewed_at) {
+    parts.push("已复习");
+  }
+  return parts.join(" / ");
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }

@@ -21,6 +21,7 @@ type QuestionCardProps = {
   selectedChoiceId?: string;
   result?: QuizQuestionResult;
   showAnswer?: boolean;
+  isSavedToWrongBook?: boolean;
   onSelect?: (choiceId: string) => void;
 };
 
@@ -30,6 +31,7 @@ export function QuestionCard({
   selectedChoiceId,
   result,
   showAnswer = false,
+  isSavedToWrongBook = Boolean(result && !result.is_correct),
   onSelect,
 }: QuestionCardProps) {
   const isAnswered = Boolean(result || showAnswer);
@@ -38,6 +40,10 @@ export function QuestionCard({
 
   return (
     <article className="quiz-question">
+      {isSavedToWrongBook ? (
+        <div className="quiz-question-saved">已写入错题本</div>
+      ) : null}
+
       <div className="quiz-question-prompt">
         <span className="quiz-question-number">{index + 1}</span>
         <MarkdownAnswer
@@ -91,6 +97,8 @@ function ChoiceButton({
   const isSelected = selectedChoiceId === choice.id;
   const isCorrect = isAnswered && choice.id === correctChoiceId;
   const isWrongSelection = isAnswered && isSelected && !isCorrect;
+  const resultLabel = isCorrect ? "正确答案" : isWrongSelection ? "你的选择" : "";
+  const resultIcon = isCorrect ? "✓" : isWrongSelection ? "✕" : "";
 
   return (
     <button
@@ -106,8 +114,14 @@ function ChoiceButton({
       disabled={isAnswered || !onSelect}
       onClick={() => onSelect?.(choice.id)}
     >
-      <span>{choice.id}</span>
+      <span className="quiz-choice-letter">{choice.id}</span>
       <em>{choice.text}</em>
+      {resultLabel ? (
+        <span className="quiz-choice-result">
+          <strong aria-hidden="true">{resultIcon}</strong>
+          {resultLabel}
+        </span>
+      ) : null}
     </button>
   );
 }
