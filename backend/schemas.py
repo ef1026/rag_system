@@ -473,6 +473,7 @@ class MemoryExtractRequest(BaseModel):
     conversation_ids: list[str] = Field(default_factory=list)
     wrong_question_ids: list[str] = Field(default_factory=list)
     limit: int = 50
+    activate: bool = False
 
 
 class MemoryExtractResponse(BaseModel):

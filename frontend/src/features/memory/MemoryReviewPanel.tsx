@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { quizApi } from "@/features/quiz/api";
+import type { WrongQuestion } from "@/features/quiz/types";
+import { request } from "@/lib/api";
 import { memoryApi } from "./api";
 import type { MemoryCandidateSource, UserMemory } from "./types";
 
-const statuses = ["candidate", "active", "dismissed"] as const;
+const statuses = ["active", "dismissed"] as const;
 const scopeTypes = ["global", "course", "document", "conversation"] as const;
 const sourceFilters = ["all", "conversation", "wrong_question"] as const;
 
@@ -17,16 +20,29 @@ type MemoryDraft = {
 
 type SourceFilter = (typeof sourceFilters)[number];
 
+type ConversationMessageDetail = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
 export function MemoryReviewPanel() {
+  const memoryHistoryRef = useRef<HTMLDivElement | null>(null);
   const [memories, setMemories] = useState<UserMemory[]>([]);
   const [sources, setSources] = useState<MemoryCandidateSource[]>([]);
   const [selectedSourceKeys, setSelectedSourceKeys] = useState<Record<string, boolean>>({});
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [detailSource, setDetailSource] = useState<MemoryCandidateSource | null>(null);
+  const [detailMessages, setDetailMessages] = useState<ConversationMessageDetail[]>([]);
+  const [detailWrongQuestion, setDetailWrongQuestion] = useState<WrongQuestion | null>(null);
+  const [detailError, setDetailError] = useState("");
   const [drafts, setDrafts] = useState<Record<string, MemoryDraft>>({});
   const [editingId, setEditingId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingSources, setIsLoadingSources] = useState(true);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -96,8 +112,9 @@ export function MemoryReviewPanel() {
           .filter((source) => source.source_type === "wrong_question")
           .map((source) => source.id),
         limit: Math.max(50, selectedSources.length * 4),
+        activate: true,
       });
-      setNotice(`已创建或刷新 ${result.created_count} 条候选记忆。`);
+      setNotice(`已启用 ${result.created_count} 条记忆。`);
       await loadMemories();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "候选记忆提取失败。");
@@ -120,6 +137,49 @@ export function MemoryReviewPanel() {
         uniqueSources.map((source) => [sourceKey(source), !allSourcesSelected]),
       ),
     );
+  }
+
+  async function openSourceDetail(source: MemoryCandidateSource) {
+    setDetailSource(source);
+    setDetailMessages([]);
+    setDetailWrongQuestion(null);
+    setDetailError("");
+    setIsDetailLoading(true);
+    try {
+      if (source.source_type === "conversation") {
+        const messages = await request<ConversationMessageDetail[]>(
+          `/api/conversations/${encodeURIComponent(source.id)}/messages`,
+        );
+        setDetailMessages(messages);
+      } else {
+        const wrongQuestions = await quizApi.wrongQuestions(null);
+        const wrongQuestion = wrongQuestions.find((item) => item.id === source.id);
+        if (!wrongQuestion) {
+          throw new Error("未找到这条错题记录。");
+        }
+        setDetailWrongQuestion(wrongQuestion);
+      }
+    } catch (nextError) {
+      setDetailError(
+        nextError instanceof Error ? nextError.message : "详情加载失败。",
+      );
+    } finally {
+      setIsDetailLoading(false);
+    }
+  }
+
+  function closeSourceDetail() {
+    setDetailSource(null);
+    setDetailMessages([]);
+    setDetailWrongQuestion(null);
+    setDetailError("");
+  }
+
+  function scrollToMemoryHistory() {
+    memoryHistoryRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   function startEditing(memory: UserMemory) {
@@ -180,6 +240,9 @@ export function MemoryReviewPanel() {
           <p className="section-label">学习记忆</p>
           <h2>审核候选记忆</h2>
         </div>
+        <Button type="button" variant="ghost" onClick={scrollToMemoryHistory}>
+          查看记忆
+        </Button>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
@@ -193,13 +256,14 @@ export function MemoryReviewPanel() {
         isLoading={isLoadingSources}
         onToggle={toggleSource}
         onToggleAll={toggleAllSources}
+        onOpenDetail={(source) => void openSourceDetail(source)}
         onFilterChange={setSourceFilter}
         onExtract={() => void extractCandidates()}
         isExtracting={isExtracting}
       />
       {isLoading ? <p className="empty-state">正在加载记忆...</p> : null}
 
-      <div className="memory-groups">
+      <div className="memory-groups" ref={memoryHistoryRef}>
         {grouped.map((group) => (
           <section className="memory-group" key={group.status}>
             <div className="memory-group-heading">
@@ -230,6 +294,16 @@ export function MemoryReviewPanel() {
           </section>
         ))}
       </div>
+      {detailSource ? (
+        <MemorySourceDetailDialog
+          source={detailSource}
+          messages={detailMessages}
+          wrongQuestion={detailWrongQuestion}
+          isLoading={isDetailLoading}
+          error={detailError}
+          onClose={closeSourceDetail}
+        />
+      ) : null}
     </section>
   );
 }
@@ -243,6 +317,7 @@ function MemorySourcePicker({
   isLoading,
   onToggle,
   onToggleAll,
+  onOpenDetail,
   onFilterChange,
   onExtract,
   isExtracting,
@@ -255,6 +330,7 @@ function MemorySourcePicker({
   isLoading: boolean;
   onToggle: (source: MemoryCandidateSource) => void;
   onToggleAll: () => void;
+  onOpenDetail: (source: MemoryCandidateSource) => void;
   onFilterChange: (filter: SourceFilter) => void;
   onExtract: () => void;
   isExtracting: boolean;
@@ -329,28 +405,128 @@ function MemorySourcePicker({
           const key = sourceKey(source);
           const selected = Boolean(selectedSourceKeys[key]);
           return (
-            <label
+            <article
               className={`memory-source-item${selected ? " selected" : ""}`}
               key={key}
             >
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={() => onToggle(source)}
-              />
-              <span className="memory-source-main">
-                <span className="memory-source-title-row">
-                  <strong>{sourceTitle(source)}</strong>
-                  <em>{sourceTypeLabel(source.source_type)}</em>
+              <label className="memory-source-select">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => onToggle(source)}
+                />
+                <span className="memory-source-main">
+                  <span className="memory-source-title-row">
+                    <strong>{sourceTitle(source)}</strong>
+                    <em>{sourceTypeLabel(source.source_type)}</em>
+                  </span>
+                  <small>{sourceMeta(source)}</small>
+                  <span>{source.preview || "暂无预览。"}</span>
                 </span>
-                <small>{sourceMeta(source)}</small>
-                <span>{source.preview || "暂无预览。"}</span>
-              </span>
-            </label>
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenDetail(source)}
+              >
+                查看详情
+              </Button>
+            </article>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function MemorySourceDetailDialog({
+  source,
+  messages,
+  wrongQuestion,
+  isLoading,
+  error,
+  onClose,
+}: {
+  source: MemoryCandidateSource;
+  messages: ConversationMessageDetail[];
+  wrongQuestion: WrongQuestion | null;
+  isLoading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="memory-detail-backdrop" role="presentation">
+      <section
+        className="memory-detail-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${sourceTypeLabel(source.source_type)}详情`}
+      >
+        <header className="memory-detail-header">
+          <div>
+            <p className="section-label">{sourceTypeLabel(source.source_type)}</p>
+            <h3>{sourceTitle(source)}</h3>
+            <span>{sourceMeta(source)}</span>
+          </div>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            关闭
+          </Button>
+        </header>
+
+        {isLoading ? <p className="empty-state compact">正在加载详情...</p> : null}
+        {error ? <p className="error-text">{error}</p> : null}
+
+        {!isLoading && !error && source.source_type === "conversation" ? (
+          messages.length ? (
+            <div className="memory-detail-message-list">
+              {messages.map((message) => (
+                <article className="memory-detail-message" key={message.id}>
+                  <div>
+                    <strong>{message.role === "user" ? "用户" : "助手"}</strong>
+                    <span>{formatDate(message.created_at)}</span>
+                  </div>
+                  <p>{message.content}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state compact">这段聊天暂无可展示消息。</p>
+          )
+        ) : null}
+
+        {!isLoading && !error && wrongQuestion ? (
+          <div className="memory-detail-wrong">
+            <div>
+              <span>题目</span>
+              <p>{wrongQuestion.prompt}</p>
+            </div>
+            <div className="memory-detail-choice-grid">
+              <DetailField
+                label="用户选择"
+                value={choiceText(wrongQuestion, wrongQuestion.selected_choice_id)}
+              />
+              <DetailField
+                label="正确答案"
+                value={choiceText(wrongQuestion, wrongQuestion.correct_choice_id)}
+              />
+            </div>
+            <div>
+              <span>解析</span>
+              <p>{wrongQuestion.explanation || "暂无解析。"}</p>
+            </div>
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <p>{value}</p>
+    </div>
   );
 }
 
@@ -490,7 +666,6 @@ function scopeLabel(scopeType: UserMemory["scope_type"]) {
 }
 
 function labelForStatus(status: (typeof statuses)[number]) {
-  if (status === "candidate") return "候选";
   if (status === "active") return "已启用";
   return "已拒绝";
 }
@@ -576,6 +751,11 @@ function sourceMeta(source: MemoryCandidateSource) {
 function shortId(value: string) {
   if (value.length <= 10) return value;
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function choiceText(question: WrongQuestion, choiceId: string) {
+  const choice = question.choices.find((item) => item.id === choiceId);
+  return choice ? `${choice.id}. ${choice.text}` : choiceId || "未记录";
 }
 
 function formatDate(value: string | null) {

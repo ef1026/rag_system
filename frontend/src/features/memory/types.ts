@@ -52,6 +52,7 @@ export type MemoryExtractRequest = Partial<{
   conversation_ids: string[];
   wrong_question_ids: string[];
   limit: number;
+  activate: boolean;
 }>;
 
 export type MemoryExtractResponse = {

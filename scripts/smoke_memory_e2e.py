@@ -153,6 +153,17 @@ def main() -> None:
             for memory in selected_extract.memories
         )
 
+        selected_active_extract = extract_memories(
+            MemoryExtractRequest(
+                conversation_ids=[conversation.id],
+                wrong_question_ids=["wrong_e2e"],
+                limit=20,
+                activate=True,
+            )
+        )
+        assert selected_active_extract.memories
+        assert all(memory.status == "active" for memory in selected_active_extract.memories)
+
         assert first_user.id == "client_user_1"
         before_import_count = len(list_messages(conversation.id))
 

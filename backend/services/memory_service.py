@@ -217,6 +217,8 @@ def extract_memories(payload: MemoryExtractRequest) -> MemoryExtractResponse:
     for spec in candidates[:limit]:
         memory = _upsert_candidate(**spec)
         if memory:
+            if payload.activate:
+                memory = accept_memory(memory.id)
             created.append(memory)
     return MemoryExtractResponse(created_count=len(created), memories=created)
 
