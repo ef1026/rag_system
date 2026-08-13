@@ -171,6 +171,21 @@ def multi_document_query_concurrency() -> int:
     return max(1, min(configured, 3))
 
 
+def vlm_query_timeout_seconds() -> float | None:
+    raw_timeout = os.getenv("CHAT_VLM_QUERY_TIMEOUT_SECONDS")
+    if raw_timeout in (None, ""):
+        return 45.0
+    try:
+        timeout = float(raw_timeout)
+    except ValueError:
+        logger.warning(
+            "Invalid CHAT_VLM_QUERY_TIMEOUT_SECONDS=%r; using default 45s.",
+            raw_timeout,
+        )
+        return 45.0
+    return timeout if timeout > 0 else None
+
+
 def is_summary_request(question: str) -> bool:
     normalized = question.strip().lower()
     return any(term in normalized for term in SUMMARY_REQUEST_TERMS)
@@ -479,16 +494,74 @@ async def query_single_document(
                 query_kwargs.get("max_total_tokens", "QueryParam.default"),
                 query_kwargs.get("vlm_enhanced", "auto"),
             )
-            answer = await rag.aquery(
-                query,
-                **query_kwargs,
-            )
-            answer = response_content_to_text(answer)
-            primary_query_elapsed = time.perf_counter() - primary_query_started
-            timings["vlm_enhanced_query"] = (
-                primary_query_elapsed if requested_vlm_enhanced is not False else 0.0
-            )
-            if answer_needs_fallback(answer) and requested_vlm_enhanced is not False:
+            try:
+                primary_query = rag.aquery(
+                    query,
+                    **query_kwargs,
+                )
+                if requested_vlm_enhanced is not False:
+                    timeout = vlm_query_timeout_seconds()
+                    if timeout is not None:
+                        primary_query = asyncio.wait_for(
+                            primary_query,
+                            timeout=timeout,
+                        )
+                answer = response_content_to_text(await primary_query)
+            except Exception as error:
+                primary_query_elapsed = time.perf_counter() - primary_query_started
+                timings["vlm_enhanced_query"] = (
+                    primary_query_elapsed
+                    if requested_vlm_enhanced is not False
+                    else 0.0
+                )
+                if requested_vlm_enhanced is False:
+                    raise
+                if isinstance(error, HTTPException):
+                    raise
+                if (
+                    isinstance(error, ValueError)
+                    and "No LightRAG instance available" in str(error)
+                ):
+                    raise
+                fallback_used = True
+                answer_source_path = "text_fallback"
+                logger.warning(
+                    "VLM enhanced chat query failed; retrying with vlm_enhanced=False. document_id=%s error=%s",
+                    document_id,
+                    error,
+                )
+                fallback_started = time.perf_counter()
+                try:
+                    answer = response_content_to_text(
+                        await rag.aquery(
+                            query,
+                            mode=effective_query_mode,
+                            system_prompt=system_prompt,
+                            vlm_enhanced=False,
+                            enable_rerank=effective_enable_rerank,
+                            **query_kwargs_for_chat(request, for_synthesis),
+                        )
+                    )
+                except TypeError as fallback_error:
+                    logger.warning(
+                        "vlm_enhanced=False fallback is unsupported document_id=%s error=%s",
+                        document_id,
+                        fallback_error,
+                    )
+                    answer = ""
+                timings["fallback_query"] = time.perf_counter() - fallback_started
+            else:
+                primary_query_elapsed = time.perf_counter() - primary_query_started
+                timings["vlm_enhanced_query"] = (
+                    primary_query_elapsed
+                    if requested_vlm_enhanced is not False
+                    else 0.0
+                )
+            if (
+                answer_needs_fallback(answer)
+                and requested_vlm_enhanced is not False
+                and not fallback_used
+            ):
                 fallback_used = True
                 answer_source_path = "text_fallback"
                 logger.warning(
@@ -941,24 +1014,34 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
                 timings.get("total", 0.0),
             )
             if conversation_id:
-                assistant_message = append_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=response.answer,
-                    document_ids=document_ids,
-                    level=level_key,
-                    mode=request.mode,
-                    chat_mode=chat_mode,
-                    sources=response.sources,
-                    related_images=response.related_images,
-                    inline_image_refs=response.inline_image_refs,
-                    status="sent",
-                )
-                assistant_message_id = assistant_message.id
+                try:
+                    assistant_message = append_message(
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=response.answer,
+                        document_ids=document_ids,
+                        level=level_key,
+                        mode=request.mode,
+                        chat_mode=chat_mode,
+                        sources=response.sources,
+                        related_images=response.related_images,
+                        inline_image_refs=response.inline_image_refs,
+                        status="sent",
+                    )
+                    assistant_message_id = assistant_message.id
+                except HTTPException as exc:
+                    if exc.status_code != 404:
+                        raise
+                    logger.warning(
+                        "Skipping assistant message persistence because conversation disappeared conversation_id=%s error=%s",
+                        conversation_id,
+                        exc.detail,
+                    )
                 response.conversation_id = conversation_id
                 response.user_message_id = user_message_id
                 response.assistant_message_id = assistant_message_id
-                refresh_memory_candidates(conversation_id)
+                if assistant_message_id:
+                    refresh_memory_candidates(conversation_id)
             return response
 
         elif summary_requested:
@@ -1079,24 +1162,34 @@ async def chat(request: ChatRequest) -> ChatResponse | JSONResponse:
             timings.get("total", 0.0),
         )
         if conversation_id:
-            assistant_message = append_message(
-                conversation_id=conversation_id,
-                role="assistant",
-                content=response.answer,
-                document_ids=document_ids,
-                level=level_key,
-                mode=request.mode,
-                chat_mode=chat_mode,
-                sources=response.sources,
-                related_images=response.related_images,
-                inline_image_refs=response.inline_image_refs,
-                status="sent",
-            )
-            assistant_message_id = assistant_message.id
+            try:
+                assistant_message = append_message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=response.answer,
+                    document_ids=document_ids,
+                    level=level_key,
+                    mode=request.mode,
+                    chat_mode=chat_mode,
+                    sources=response.sources,
+                    related_images=response.related_images,
+                    inline_image_refs=response.inline_image_refs,
+                    status="sent",
+                )
+                assistant_message_id = assistant_message.id
+            except HTTPException as exc:
+                if exc.status_code != 404:
+                    raise
+                logger.warning(
+                    "Skipping assistant message persistence because conversation disappeared conversation_id=%s error=%s",
+                    conversation_id,
+                    exc.detail,
+                )
             response.conversation_id = conversation_id
             response.user_message_id = user_message_id
             response.assistant_message_id = assistant_message_id
-            refresh_memory_candidates(conversation_id)
+            if assistant_message_id:
+                refresh_memory_candidates(conversation_id)
         return response
     except HTTPException as exc:
         mark_user_message_failed(user_message_id, str(exc.detail))

@@ -805,7 +805,7 @@ class QueryMixin:
             else:
                 # Multimodal mode - pass complete messages directly to VLM
                 result = await self.vision_model_func(
-                    "",  # Empty prompt since we're using messages format
+                    "Please answer using the provided multimodal context and image content.",
                     messages=messages,
                 )
 

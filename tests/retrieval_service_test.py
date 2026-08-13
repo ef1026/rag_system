@@ -30,7 +30,7 @@ from backend.services import retrieval_service as retrieval
 
 
 class FakeRAG:
-    def __init__(self, responses: list[str]) -> None:
+    def __init__(self, responses: list[Any]) -> None:
         self.responses = responses
         self.calls: list[dict[str, Any]] = []
         self.lightrag = object()
@@ -41,7 +41,19 @@ class FakeRAG:
     async def aquery(self, query: str, **kwargs: Any) -> str:
         self.calls.append({"query": query, **kwargs})
         index = min(len(self.calls) - 1, len(self.responses) - 1)
-        return self.responses[index]
+        response = self.responses[index]
+        if isinstance(response, BaseException):
+            raise response
+        return str(response)
+
+
+class SlowFirstRAG(FakeRAG):
+    async def aquery(self, query: str, **kwargs: Any) -> str:
+        self.calls.append({"query": query, **kwargs})
+        if len(self.calls) == 1:
+            await asyncio.sleep(0.05)
+            return "late vlm answer"
+        return "text fallback answer"
 
 
 def make_context(document_id: str, tmp_path: Path) -> DocumentChatContext:
@@ -300,7 +312,11 @@ def test_fast_text_summary_single_document_uses_compact_summary_without_rag(
         assert document_answers[0].answer == "context a.pdf"
         return "compact summary"
 
-    monkeypatch.setattr(retrieval, "validate_chat_document_contexts", lambda _ids: contexts)
+    monkeypatch.setattr(
+        retrieval,
+        "validate_chat_document_contexts",
+        lambda _ids: contexts,
+    )
     monkeypatch.setattr(
         retrieval,
         "compile_personalization",
@@ -396,6 +412,140 @@ def test_auto_empty_answer_allows_one_text_fallback_before_direct_context(
     assert fake_rag.calls[1]["vlm_enhanced"] is False
     assert direct_calls == [("a.pdf", "解释概念")]
     assert answer.answer_source_path == "direct_context_fallback:full_docs"
+
+
+def test_auto_query_exception_falls_back_to_text(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    fake_rag = FakeRAG(
+        [
+            RuntimeError("VLM call failed: content field is required"),
+            "text fallback answer",
+        ]
+    )
+    direct_calls = patch_query_single_document_ready(monkeypatch, tmp_path, fake_rag)
+    request = ChatRequest(
+        question="瑙ｉ噴姒傚康",
+        document_id="a.pdf",
+        level="undergraduate",
+        mode="hybrid",
+        vlm_enhanced="auto",
+    )
+
+    answer = asyncio.run(
+        retrieval.query_single_document(
+            request,
+            make_context("a.pdf", tmp_path),
+            "undergraduate",
+            "鏈",
+            "",
+            [],
+            False,
+        )
+    )
+
+    assert answer.answer == "text fallback answer"
+    assert answer.answer_source_path == "text_fallback"
+    assert answer.fallback_used is True
+    assert len(fake_rag.calls) == 2
+    assert "vlm_enhanced" not in fake_rag.calls[0]
+    assert fake_rag.calls[1]["vlm_enhanced"] is False
+    assert direct_calls == []
+
+
+def test_auto_query_timeout_falls_back_to_text(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    fake_rag = SlowFirstRAG([])
+    direct_calls = patch_query_single_document_ready(monkeypatch, tmp_path, fake_rag)
+    monkeypatch.setenv("CHAT_VLM_QUERY_TIMEOUT_SECONDS", "0.001")
+    request = ChatRequest(
+        question="瑙ｉ噴姒傚康",
+        document_id="a.pdf",
+        level="undergraduate",
+        mode="hybrid",
+        vlm_enhanced="auto",
+    )
+
+    answer = asyncio.run(
+        retrieval.query_single_document(
+            request,
+            make_context("a.pdf", tmp_path),
+            "undergraduate",
+            "鏈",
+            "",
+            [],
+            False,
+        )
+    )
+
+    assert answer.answer == "text fallback answer"
+    assert answer.answer_source_path == "text_fallback"
+    assert answer.fallback_used is True
+    assert len(fake_rag.calls) == 2
+    assert "vlm_enhanced" not in fake_rag.calls[0]
+    assert fake_rag.calls[1]["vlm_enhanced"] is False
+    assert direct_calls == []
+
+
+def test_chat_returns_answer_when_conversation_deleted_before_assistant_save(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    contexts = [make_context("a.pdf", tmp_path)]
+
+    async def fake_query_single_document(*_args: Any, **_kwargs: Any) -> DocumentAnswer:
+        return make_answer("a.pdf", tmp_path)
+
+    def fake_append_message(**kwargs: Any) -> SimpleNamespace:
+        if kwargs["role"] == "assistant":
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        return SimpleNamespace(id=kwargs.get("message_id") or "user-message")
+
+    monkeypatch.setattr(retrieval, "validate_chat_document_contexts", lambda _ids: contexts)
+    monkeypatch.setattr(
+        retrieval,
+        "compile_personalization",
+        lambda **_kwargs: SimpleNamespace(
+            generation_prompt="",
+            retrieval_hints=[],
+            used_memories=[],
+        ),
+    )
+    monkeypatch.setattr(
+        retrieval,
+        "ensure_conversation_for_chat",
+        lambda **kwargs: SimpleNamespace(id=kwargs["conversation_id"]),
+    )
+    monkeypatch.setattr(retrieval, "append_message", fake_append_message)
+    monkeypatch.setattr(retrieval, "query_single_document", fake_query_single_document)
+    monkeypatch.setattr(retrieval, "select_related_images", lambda *_args: [])
+    monkeypatch.setattr(retrieval, "public_images_for_documents", lambda *_args: [])
+    monkeypatch.setattr(
+        retrieval,
+        "validate_answer_images",
+        lambda answer, related_images, _allowed_images: (answer, related_images, []),
+    )
+
+    response = asyncio.run(
+        retrieval.chat(
+            ChatRequest(
+                question="alpha",
+                document_id="a.pdf",
+                level="undergraduate",
+                mode="hybrid",
+                conversation_id="conversation-1",
+                client_user_message_id="user-message",
+            )
+        )
+    )
+
+    assert response.answer == "answer a.pdf"
+    assert response.conversation_id == "conversation-1"
+    assert response.user_message_id == "user-message"
+    assert response.assistant_message_id is None
 
 
 def test_multimodal_keeps_requested_mode_and_rerank(
