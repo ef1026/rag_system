@@ -30,7 +30,7 @@ dependencies = [
     "protobuf==3.20.2",
     "google-api-core==2.19.2",
     "googleapis-common-protos==1.63.2",
-    "proto-plus==1.24.0",
+    "proto-plus==1.28.3",
     "huggingface_hub",
     "lightrag-hku",
     "mineru[core]",
