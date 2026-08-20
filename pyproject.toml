@@ -45,14 +45,14 @@ image = ["Pillow>=10.0.0"]
 text = ["reportlab>=4.0.0"]
 office = []  # Requires LibreOffice (external program)
 markdown = [
-    "markdown>=3.4.0",
+    "markdown>=3.10.3",
     "weasyprint>=60.0",
     "pygments>=2.10.0",
 ]
 all = [
     "Pillow>=10.0.0",
     "reportlab>=4.0.0",
-    "markdown>=3.4.0",
+    "markdown>=3.10.3",
     "weasyprint>=60.0",
     "pygments>=2.10.0"
 ]
